@@ -15,9 +15,11 @@ config = {
     "base_learning_rate": 0.01,
     "base_lr_decay": 0.9,
     "base_lr_decays_every": 1,
+    "base_lr_min": 0.0001,
     "new_learning_rate": 0.0001,
     "new_lr_decay": 0.9,
     "new_lr_decays_every": 2,
+    "new_lr_min": 5e-6,
     "base_training_epochs": 100,
     "new_training_epochs": 100,
     "new_batch_num_replay": 10, # how many of batch of new items are replays
@@ -113,7 +115,7 @@ class MNIST_autoenc(object):
 			fout.write(("%i, " % epoch) + "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n" % tuple(losses))
 
 	    # update lr
-	    if epoch > 0 and epoch % config["base_lr_decays_every"] == 0: 
+	    if epoch > 0 and epoch % config["base_lr_decays_every"] == 0 and self.base_lr > config["base_lr_min"]: 
 		self.base_lr *= config["base_lr_decay"]
          
     def new_data_train(self, new_dataset, old_dataset=None, nepochs=100, test_dataset=None, log_file_prefix=None):
@@ -198,7 +200,7 @@ class MNIST_autoenc(object):
 			fout.write(("%i, " % epoch) + "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n" % tuple(losses))
 
 	    # update lr
-	    if epoch > 0 and epoch % config["new_lr_decays_every"] == 0: 
+	    if epoch > 0 and epoch % config["new_lr_decays_every"] == 0 and self.new_lr > config["new_lr_min"]: 
 		self.new_lr *= config["new_lr_decay"]
 
 
