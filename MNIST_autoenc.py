@@ -13,18 +13,18 @@ config = {
     "num_runs": 10,
     "batch_size": 20,
     "base_learning_rate": 0.01,
-    "base_lr_decay": 0.95,
+    "base_lr_decay": 0.9,
     "base_lr_decays_every": 1,
-    "new_learning_rate": 0.001,
-    "new_lr_decay": 0.95,
-    "new_lr_decays_every": 1,
+    "new_learning_rate": 0.0001,
+    "new_lr_decay": 0.9,
+    "new_lr_decays_every": 2,
     "base_training_epochs": 100,
     "new_training_epochs": 100,
     "new_batch_num_replay": 10, # how many of batch of new items are replays
                                 # if replay is on
     "softmax_temp": 0.1, # temperature for SWIL replay softmax
     "output_path": "./results/",
-    "layer_sizes": [128, 64, 32, 64, 128]
+    "layer_sizes": [256, 64, 16, 64, 256]
 }
 
 ###### MNIST data loading and manipulation #####################################
@@ -238,7 +238,7 @@ class MNIST_autoenc(object):
 ###### Run stuff ###############################################################
 
 for left_out_class in range(1):
-    for replay_type in ["SWIL", "Random", "None"]:
+    for replay_type in ["None", "SWIL", "Random"]:
         for run in range(config["num_runs"]):
             filename_prefix = "m_%s_lo%i_run%i_" %(replay_type,
                                                    left_out_class,
