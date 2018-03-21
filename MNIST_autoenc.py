@@ -13,7 +13,11 @@ config = {
     "num_runs": 10,
     "batch_size": 20,
     "base_learning_rate": 0.01,
-    "new_learning_rate": 0.01,
+    "base_lr_decay": 0.95,
+    "base_lr_decays_every": 1,
+    "new_learning_rate": 0.001,
+    "new_lr_decay": 0.95,
+    "new_lr_decays_every": 1,
     "base_training_epochs": 100,
     "new_training_epochs": 100,
     "new_batch_num_replay": 10, # how many of batch of new items are replays
@@ -88,7 +92,7 @@ class MNIST_autoenc(object):
         """Train the model on a dataset"""
         if log_file_prefix is not None:
             if test_dataset is not None:
-                with open(config["output_path"] + log_file_prefix + "new_train_losses.csv", "a") as fout:
+                with open(config["output_path"] + log_file_prefix + "base_train_losses.csv", "w") as fout:
                     fout.write("epoch, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i\n" % tuple(range(10)))
 
         batch_size = config["batch_size"]
@@ -104,9 +108,13 @@ class MNIST_autoenc(object):
             # eval
             if log_file_prefix is not None:
                 if test_dataset is not None:
-                    with open(config["output_path"] + log_file_prefix + "new_train_losses.csv", "a") as fout:
+                    with open(config["output_path"] + log_file_prefix + "base_train_losses.csv", "a") as fout:
                         losses = self.eval(test_dataset)
-                        fout.write(("%i" % epoch) + "%i, %i, %i, %i, %i, %i, %i, %i, %i, %i\n" % tuple(losses))
+			fout.write(("%i, " % epoch) + "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n" % tuple(losses))
+
+	    # update lr
+	    if epoch > 0 and epoch % config["base_lr_decays_every"] == 0: 
+		self.base_lr *= config["base_lr_decay"]
          
     def new_data_train(self, new_dataset, old_dataset=None, nepochs=100, test_dataset=None, log_file_prefix=None):
         """Assuming the model has been trained on old_dataset, tune on
@@ -119,10 +127,10 @@ class MNIST_autoenc(object):
         
         if log_file_prefix is not None:
             if self.replay_type != "None": 
-                with open(config["output_path"] + log_file_prefix + "replay_labels_encountered.csv", "a") as fout:
+                with open(config["output_path"] + log_file_prefix + "replay_labels_encountered.csv", "w") as fout:
                     fout.write("epoch, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i\n" % tuple(range(10)))
             if test_dataset is not None:
-                with open(config["output_path"] + log_file_prefix + "new_train_losses.csv", "a") as fout:
+                with open(config["output_path"] + log_file_prefix + "new_train_losses.csv", "w") as fout:
                     fout.write("epoch, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i\n" % tuple(range(10)))
 
         for epoch in range(nepochs):
@@ -178,16 +186,20 @@ class MNIST_autoenc(object):
                         self.lr_ph: self.new_lr 
                     })
 
-                # eval
-                if log_file_prefix is not None:
-                    if self.replay_type != "None": 
-                        with open(config["output_path"] + log_file_prefix + "replay_labels_encountered.csv", "a") as fout:
-                            counts = [replay_labels_encountered[i] for i in range(10)] 
-                            fout.write(("%i" % epoch) + "%i, %i, %i, %i, %i, %i, %i, %i, %i, %i\n" % tuple(counts))
-                    if test_dataset is not None:
-                        with open(config["output_path"] + log_file_prefix + "new_train_losses.csv", "a") as fout:
-                            losses = self.eval(test_dataset)
-                            fout.write(("%i" % epoch) + "%i, %i, %i, %i, %i, %i, %i, %i, %i, %i\n" % tuple(losses))
+	    # eval
+	    if log_file_prefix is not None:
+		if self.replay_type != "None": 
+		    with open(config["output_path"] + log_file_prefix + "replay_labels_encountered.csv", "a") as fout:
+			counts = [replay_labels_encountered[i] for i in range(10)] 
+			fout.write(("%i, " % epoch) + "%i, %i, %i, %i, %i, %i, %i, %i, %i, %i\n" % tuple(counts))
+		if test_dataset is not None:
+		    with open(config["output_path"] + log_file_prefix + "new_train_losses.csv", "a") as fout:
+			losses = self.eval(test_dataset)
+			fout.write(("%i, " % epoch) + "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n" % tuple(losses))
+
+	    # update lr
+	    if epoch > 0 and epoch % config["new_lr_decays_every"] == 0: 
+		self.new_lr *= config["new_lr_decay"]
 
 
 
@@ -210,9 +222,9 @@ class MNIST_autoenc(object):
         loss = np.zeros([len(images)])
         for batch_i in xrange((len(images)//batch_size) + 1):
             this_batch_images = images[batch_i*batch_size:(batch_i+1)*batch_size, :]
-            loss[batch_i*batch_size:(batch_i+1)*batch_size, :] = self.sess.run(
+            loss[batch_i*batch_size:(batch_i+1)*batch_size] = self.sess.run(
                 self.loss, feed_dict={
-                    self.input_ph: this_batch_images 
+                    self.input_ph: this_batch_images
                 })
         return loss
 
@@ -244,7 +256,9 @@ for left_out_class in range(1):
                               "images": train_data["images"][np.logical_not(indices)]}
             this_new_data = {"labels": train_data["labels"][indices],
                              "images": train_data["images"][indices]}
-            model.base_train(this_base_data, config["base_training_epochs"])
-            model.new_data_train(this_new_data, this_base_data, config["new_training_epochs"])
+            model.base_train(this_base_data, config["base_training_epochs"],
+			     log_file_prefix=filename_prefix, test_dataset=test_data)
+            model.new_data_train(this_new_data, this_base_data, config["new_training_epochs"],
+				 log_file_prefix=filename_prefix, test_dataset=test_data)
 
             tf.reset_default_graph()
