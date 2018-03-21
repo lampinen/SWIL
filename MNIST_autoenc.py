@@ -12,7 +12,7 @@ import matplotlib.pyplot as plot
 
 config = {
     "num_runs": 10,
-    "batch_size": 20,
+    "batch_size": 10,
     "base_learning_rate": 0.001,
     "base_lr_decay": 0.9,
     "base_lr_decays_every": 1,
@@ -21,13 +21,13 @@ config = {
     "new_lr_decay": 0.9,
     "new_lr_decays_every": 2,
     "new_lr_min": 5e-6,
-    "base_training_epochs": 100,
-    "new_training_epochs": 100,
-    "new_batch_num_replay": 10, # how many of batch of new items are replays
+    "base_training_epochs": 20,
+    "new_training_epochs": 20,
+    "new_batch_num_replay": 5, # how many of batch of new items are replays
                                 # if replay is on
     "softmax_temp": 0.1, # temperature for SWIL replay softmax
     "output_path": "./results/",
-    "layer_sizes": [256, 64, 16, 64, 256]
+    "layer_sizes": [128, 32, 10, 32, 128]
 }
 
 ###### MNIST data loading and manipulation #####################################
@@ -102,9 +102,11 @@ class MNIST_autoenc(object):
             if test_dataset is not None:
                 with open(config["output_path"] + log_file_prefix + "base_train_losses.csv", "w") as fout:
                     fout.write("epoch, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i\n" % tuple(range(10)))
+		    losses = self.eval(test_dataset)
+		    fout.write(("%i, " % epoch) + "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n" % tuple(losses))
 
         batch_size = config["batch_size"]
-        for epoch in range(nepochs):
+        for epoch in range(1, nepochs + 1):
             order = np.random.permutation(len(dataset["labels"]))
             for batch_i in xrange(len(dataset["labels"])//batch_size):
                 this_batch_images = dataset["images"][order[batch_i*batch_size:(batch_i+1)*batch_size], :]
@@ -140,8 +142,10 @@ class MNIST_autoenc(object):
             if test_dataset is not None:
                 with open(config["output_path"] + log_file_prefix + "new_train_losses.csv", "w") as fout:
                     fout.write("epoch, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i\n" % tuple(range(10)))
+		    losses = self.eval(test_dataset)
+		    fout.write(("%i, " % epoch) + "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n" % tuple(losses))
 
-        for epoch in range(nepochs):
+        for epoch in range(1, nepochs + 1):
             if self.replay_type != "None":
                 replay_labels_encountered = Counter()
 
