@@ -6,13 +6,14 @@ from collections import Counter
 import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
+import matplotlib.pyplot as plot
 
 ###### configuration ###########################################################
 
 config = {
     "num_runs": 10,
     "batch_size": 20,
-    "base_learning_rate": 0.01,
+    "base_learning_rate": 0.001,
     "base_lr_decay": 0.9,
     "base_lr_decays_every": 1,
     "base_lr_min": 0.0001,
@@ -59,6 +60,11 @@ def softmax(x, T=1):
 def to_unit_rows(x):
     """Converts row vectors of a matrix to unit vectors"""
     return x/np.expand_dims(np.sqrt(np.sum(x**2, axis=1)), -1)
+
+def _display_image(x):
+    x = np.reshape(x, [28, 28])
+    plot.figure()
+    plot.imshow(x, vmin=0, vmax=1)
 
 class MNIST_autoenc(object):
     """MNIST autoencoder architecture, with or without replay buffer"""
@@ -237,6 +243,18 @@ class MNIST_autoenc(object):
         losses_summarized = [np.sum(losses[dataset["labels"] == i])/np.sum(dataset["labels"] == i) for i in range(10)]
         return losses_summarized
 
+    def display_output(self, image):
+        """Runs an image and shows comparison"""
+        output_image = self.sess.run(self.output, feed_dict={
+                self.input_ph: np.expand_dims(image, 0) 
+            })
+
+        _display_image(image)
+        _display_image(output_image)
+        plot.show()
+
+
+
 ###### Run stuff ###############################################################
 
 for left_out_class in range(1):
@@ -256,10 +274,16 @@ for left_out_class in range(1):
             indices = train_data["labels"] == left_out_class
             this_base_data = {"labels": train_data["labels"][np.logical_not(indices)],
                               "images": train_data["images"][np.logical_not(indices)]}
+            #print(Counter(this_base_data["labels"]).most_common())
             this_new_data = {"labels": train_data["labels"][indices],
                              "images": train_data["images"][indices]}
+            #print(Counter(this_new_data["labels"]).most_common())
+            #model.display_output(this_base_data["images"][0])
+            #model.display_output(this_new_data["images"][0])
             model.base_train(this_base_data, config["base_training_epochs"],
 			     log_file_prefix=filename_prefix, test_dataset=test_data)
+            #model.display_output(this_base_data["images"][0])
+            #model.display_output(this_new_data["images"][0])
             model.new_data_train(this_new_data, this_base_data, config["new_training_epochs"],
 				 log_file_prefix=filename_prefix, test_dataset=test_data)
 
