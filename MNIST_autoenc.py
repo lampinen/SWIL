@@ -72,7 +72,7 @@ class MNIST_autoenc(object):
         self.bottleneck_size = min(layer_sizes)
         net = self.input_ph
         for h_size in layer_sizes:
-            net = slim.layers.fully_connected(net, h_size, activation_fn=tf.nn.leaky_relu)
+            net = slim.layers.fully_connected(net, h_size, activation_fn=tf.nn.relu)
             if h_size == self.bottleneck_size: 
                 self.bottleneck_rep = net
         self.output = slim.layers.fully_connected(net, 784, activation_fn=tf.nn.sigmoid)
@@ -148,7 +148,7 @@ class MNIST_autoenc(object):
                     this_batch_images = np.concatenate(
                         [new_dataset["images"][order[batch_i*new_batch_size:(batch_i+1)*new_batch_size], :],
                          old_dataset["images"][old_order[batch_i*old_batch_size:(batch_i+1)*old_batch_size], :]])
-                    replay_labels_encountered.update(old_dataset["labels"][old_order[batch_i*old_batch_size:(batch_i+1)*old_batch_size])
+                    replay_labels_encountered.update(old_dataset["labels"][old_order[batch_i*old_batch_size:(batch_i+1)*old_batch_size]])
                 else: # SWIL
                     this_batch_new = new_dataset["images"][order[batch_i*new_batch_size:(batch_i+1)*new_batch_size], :]
                     this_batch_new_reps = self.get_reps(this_batch_new)
@@ -231,6 +231,7 @@ for left_out_class in range(1):
             filename_prefix = "m_%s_lo%i_run%i_" %(replay_type,
                                                    left_out_class,
                                                    run)
+	    print(filename_prefix)
             np.random.seed(run)
             tf.set_random_seed(run)
 
