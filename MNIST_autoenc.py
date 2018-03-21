@@ -10,12 +10,12 @@ import tensorflow.contrib.slim as slim
 ###### configuration ###########################################################
 
 config = {
-    "num_runs": 1,
+    "num_runs": 10,
     "batch_size": 20,
     "base_learning_rate": 0.01,
     "new_learning_rate": 0.01,
-    "base_training_epochs": 10,
-    "new_training_epochs": 1,
+    "base_training_epochs": 100,
+    "new_training_epochs": 100,
     "new_batch_num_replay": 10, # how many of batch of new items are replays
                                 # if replay is on
     "softmax_temp": 0.1, # temperature for SWIL replay softmax
@@ -245,3 +245,5 @@ for left_out_class in range(1):
                              "images": train_data["images"][indices]}
             model.base_train(this_base_data, config["base_training_epochs"])
             model.new_data_train(this_new_data, this_base_data, config["new_training_epochs"])
+
+            tf.reset_default_graph()
