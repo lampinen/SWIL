@@ -25,9 +25,11 @@ config = {
     "new_training_epochs": 20,
     "new_batch_num_replay": 5, # how many of batch of new items are replays
                                 # if replay is on
-    "softmax_temp": 0.1, # temperature for SWIL replay softmax
+    "SW_by": "reps", # one of "images" or "reps", what feature space to do
+		       # the similarity weighting in
+    "softmax_temp": 1, # temperature for SWIL replay softmax
     "output_path": "./results/",
-    "layer_sizes": [128, 32, 10, 32, 128]
+    "layer_sizes": [128, 32, 16, 32, 128]
 }
 
 ###### MNIST data loading and manipulation #####################################
@@ -164,13 +166,16 @@ class MNIST_autoenc(object):
             if self.replay_type == "Random":
                 old_order = np.random.permutation(len(old_dataset["labels"]))
             elif self.replay_type == "SWIL":
-                old_dataset_reps = self.get_reps(old_dataset["images"])
-                # standardize
-                old_dataset_reps_means = np.mean(old_dataset_reps, axis=0)
-                old_dataset_reps_sds = np.std(old_dataset_reps, axis=0)
-                old_dataset_reps = (old_dataset_reps - old_dataset_reps_means)/old_dataset_reps_sds
-                # normalize
-                old_dataset_reps = to_unit_rows(old_dataset_reps)
+		if config["SW_by"] == "reps":
+		    old_dataset_reps = self.get_reps(old_dataset["images"])
+		else:
+		    old_dataset_reps = old_dataset["images"]
+		# standardize
+		old_dataset_reps_means = np.mean(old_dataset_reps, axis=0)
+		old_dataset_reps_sds = np.std(old_dataset_reps, axis=0)
+		old_dataset_reps = (old_dataset_reps - old_dataset_reps_means)/old_dataset_reps_sds
+		# normalize
+		old_dataset_reps = to_unit_rows(old_dataset_reps)
 
             for batch_i in xrange(len(new_dataset["labels"])//batch_size):
                 if self.replay_type == "None":
@@ -182,7 +187,10 @@ class MNIST_autoenc(object):
                     replay_labels_encountered.update(old_dataset["labels"][old_order[batch_i*old_batch_size:(batch_i+1)*old_batch_size]])
                 else: # SWIL
                     this_batch_new = new_dataset["images"][order[batch_i*new_batch_size:(batch_i+1)*new_batch_size], :]
-                    this_batch_new_reps = self.get_reps(this_batch_new)
+		    if config["SW_by"] == "reps":
+			this_batch_new_reps = self.get_reps(this_batch_new)
+		    else:
+			this_batch_new_reps = this_batch_new
                     # standardize
                     this_batch_new_reps_reps = (this_batch_new_reps - old_dataset_reps_means)/old_dataset_reps_sds
                     # normalize
@@ -275,34 +283,40 @@ class MNIST_autoenc(object):
 
 ###### Run stuff ###############################################################
 
-for left_out_class in range(1):
-    for replay_type in ["None", "SWIL", "Random"]:
-        for run in range(config["num_runs"]):
-            filename_prefix = "m_%s_lo%i_run%i_" %(replay_type,
-                                                   left_out_class,
-                                                   run)
-	    print(filename_prefix)
-            np.random.seed(run)
-            tf.set_random_seed(run)
+for run in range(config["num_runs"]):
+    for left_out_class in range(10): 
+	for replay_type in ["SWIL", "Random", "None"]:
+	    for temperature in [1, 10, 100, 1000]:
+		if temperature > 1 and replay_type != "SWIL":
+		    continue 
+		config["softmax_temp"] = temperature # ugly
+		filename_prefix = "run%i_lo%i_m_%s_" %(run,
+						       left_out_class,
+						       replay_type)
+		if replay_type == "SWIL":
+		    filename_prefix += "swby_%s_t_%.1f_" % (config["SW_by"], config["softmax_temp"]) 
+		print(filename_prefix)
+		np.random.seed(run)
+		tf.set_random_seed(run)
 
 
-            model = MNIST_autoenc(replay_type=replay_type,
-                                  layer_sizes=config["layer_sizes"])
+		model = MNIST_autoenc(replay_type=replay_type,
+				      layer_sizes=config["layer_sizes"])
 
-            indices = train_data["labels"] == left_out_class
-            this_base_data = {"labels": train_data["labels"][np.logical_not(indices)],
-                              "images": train_data["images"][np.logical_not(indices)]}
-            #print(Counter(this_base_data["labels"]).most_common())
-            this_new_data = {"labels": train_data["labels"][indices],
-                             "images": train_data["images"][indices]}
-            #print(Counter(this_new_data["labels"]).most_common())
-            #model.display_output(this_base_data["images"][0])
-            #model.display_output(this_new_data["images"][0])
-            model.base_train(this_base_data, config["base_training_epochs"],
-			     log_file_prefix=filename_prefix, test_dataset=test_data)
-            #model.display_output(this_base_data["images"][0])
-            #model.display_output(this_new_data["images"][0])
-            model.new_data_train(this_new_data, this_base_data, config["new_training_epochs"],
+		indices = train_data["labels"] == left_out_class
+		this_base_data = {"labels": train_data["labels"][np.logical_not(indices)],
+				  "images": train_data["images"][np.logical_not(indices)]}
+		#print(Counter(this_base_data["labels"]).most_common())
+		this_new_data = {"labels": train_data["labels"][indices],
+				 "images": train_data["images"][indices]}
+		#print(Counter(this_new_data["labels"]).most_common())
+		#model.display_output(this_base_data["images"][0])
+		#model.display_output(this_new_data["images"][0])
+		model.base_train(this_base_data, config["base_training_epochs"],
 				 log_file_prefix=filename_prefix, test_dataset=test_data)
+		#model.display_output(this_base_data["images"][0])
+		#model.display_output(this_new_data["images"][0])
+		model.new_data_train(this_new_data, this_base_data, config["new_training_epochs"],
+				     log_file_prefix=filename_prefix, test_dataset=test_data)
 
-            tf.reset_default_graph()
+		tf.reset_default_graph()
