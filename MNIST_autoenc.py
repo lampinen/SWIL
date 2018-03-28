@@ -6,7 +6,7 @@ from collections import Counter
 import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-import matplotlib.pyplot as plot
+#import matplotlib.pyplot as plot
 
 ###### configuration ###########################################################
 
@@ -285,9 +285,9 @@ class MNIST_autoenc(object):
 
 for run in range(config["num_runs"]):
     for left_out_class in range(10): 
-	for replay_type in ["SWIL", "Random", "None"]:
-	    for temperature in [1, 10, 100, 1000]:
-		if temperature > 1 and replay_type != "SWIL":
+	for replay_type in ["SWIL"]:#, "Random", "None"]:
+	    for temperature in [0.1, 0.5, 1, 2, 10]:
+		if temperature != 1 and replay_type != "SWIL":
 		    continue 
 		config["softmax_temp"] = temperature # ugly
 		filename_prefix = "run%i_lo%i_m_%s_" %(run,
