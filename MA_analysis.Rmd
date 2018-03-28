@@ -1,0 +1,104 @@
+---
+loss_d = loss_d %>%
+  gather(class, loss, X0:X9) %>%
+  mutate(class=substring(class, 2))
+title: "SWIL MNIST autoenc analysis"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+```{r}
+result_path = "./results/"
+runs = 0:2
+left_outs = 0:9
+replay_types = c("SWIL", "Random", "None")
+SW_bys = c("images", "reps")
+temperatures = c(0.1, 0.5, 1, 2, 10)
+softmax_temp = 1
+
+loss_d = data.frame()
+encountered_d = data.frame()
+
+for (run in runs) {
+  for (lo in left_outs) {
+    for (replay_type in replay_types) {
+      for (temperature in temperatures) {
+        if (replay_type != "SWIL" & temperature != 1) {
+          next
+        }
+        for (SW_by in SW_bys) {
+          if (replay_type != "SWIL" & SW_by != "reps") {
+            next
+          }
+          
+          if (replay_type == "SWIL") {
+            filename_prefix = sprintf("run%i_lo%i_m_%s_swby_%s_t_%.1f_", run, lo, replay_type, SW_by, softmax_temp)
+          } else {
+            filename_prefix = sprintf("run%i_lo%i_m_%s_", run, lo, replay_type)
+          }
+          if (!file.exists(paste(result_path, filename_prefix, "base_test_losses.csv", sep=""))) {
+            print(paste("Skipping (missing file):", filename_prefix))
+            next
+          }
+          this_base_test_loss_d = read.csv(paste(result_path, filename_prefix, "base_test_losses.csv", sep=""), header=T) %>%
+            mutate(dataset="base", run=run, left_out=lo, replay_type=replay_type, temperature=temperature, SW_by=SW_by)
+          this_new_test_loss_d = read.csv(paste(result_path, filename_prefix, "new_test_losses.csv", sep=""), header=T) %>% 
+            mutate(dataset="new", epoch=epoch+max(this_base_test_loss_d$epoch), run=run, left_out=lo, replay_type=replay_type, temperature=temperature, SW_by=SW_by) 
+          loss_d = bind_rows(loss_d, this_base_test_loss_d, this_new_test_loss_d)
+          
+          if (replay_type != "None") {
+            this_encountered_d = read.csv(paste(result_path, filename_prefix, "replay_labels_encountered.csv", sep=""), header=T) %>% 
+              mutate(dataset="new", epoch=epoch+max(this_base_test_loss_d$epoch), run=run, left_out=lo, replay_type=replay_type, temperature=temperature, SW_by=SW_by) 
+            encountered_d = bind_rows(encountered_d, this_encountered_d)
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+```{r}
+loss_d = loss_d %>%
+  gather(class, loss, X0:X9) %>%
+  mutate(class=substring(class, 2),
+         left_out=as.character(left_out),
+         left_out_class=class == left_out)
+
+encountered_d = encountered_d %>%
+  gather(class, encountered, X0:X9) %>%
+  mutate(class=substring(class, 2),
+         left_out=as.character(left_out))
+```
+
+```{r}
+summarized_loss_d = loss_d %>% 
+  group_by(dataset, left_out_class, epoch, replay_type, temperature, SW_by) %>%
+  summarize(mean_loss = mean(loss), loss_sd=sd(loss)) %>%
+  ungroup()
+```
+
+```{r}
+ggplot(summarized_loss_d, aes(x=epoch, y=mean_loss, color=left_out_class)) +
+  geom_line() +
+  ylim(0, 125) +
+  facet_wrap( ~replay_type +temperature + SW_by)
+```
+```{r}
+ggsave("results/plots/summarized_losses.png", width=10, height=10) 
+```
+
+
+
+```{r}
+summarized_encountered_d = encountered_d %>% 
+  group_by(dataset, epoch, replay_type, temperature, SW_by) %>%
+  summarize(mean_encountered = mean(encountered), encountered_sd=sd(encountered)) %>%
+  ungroup()
+```
+
