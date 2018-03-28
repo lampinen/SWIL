@@ -37,7 +37,7 @@ for (run in runs) {
           }
           
           if (replay_type == "SWIL") {
-            filename_prefix = sprintf("run%i_lo%i_m_%s_swby_%s_t_%.1f_", run, lo, replay_type, SW_by, softmax_temp)
+            filename_prefix = sprintf("run%i_lo%i_m_%s_swby_%s_t_%.1f_", run, lo, replay_type, SW_by, temperature)
           } else {
             filename_prefix = sprintf("run%i_lo%i_m_%s_", run, lo, replay_type)
           }
@@ -73,7 +73,8 @@ loss_d = loss_d %>%
 encountered_d = encountered_d %>%
   gather(class, encountered, X0:X9) %>%
   mutate(class=substring(class, 2),
-         left_out=as.character(left_out))
+         left_out=as.character(left_out),
+         left_out_class=class == left_out)
 ```
 
 ```{r}
@@ -97,8 +98,14 @@ ggsave("results/plots/summarized_losses.png", width=10, height=10)
 
 ```{r}
 summarized_encountered_d = encountered_d %>% 
-  group_by(dataset, epoch, replay_type, temperature, SW_by) %>%
+  group_by(dataset, class, left_out, replay_type, temperature, SW_by) %>%
   summarize(mean_encountered = mean(encountered), encountered_sd=sd(encountered)) %>%
   ungroup()
+```
+
+```{r}
+ggplot(summarized_encountered_d %>% filter(left_out == "0"), aes(x=class, y=mean_encountered)) +
+  geom_bar(stat="identity") +
+  facet_wrap( ~replay_type +temperature + SW_by)
 ```
 
