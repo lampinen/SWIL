@@ -186,7 +186,7 @@ class MNIST_autoenc(object):
                          old_dataset["images"][old_order[batch_i*old_batch_size:(batch_i+1)*old_batch_size], :]])
                     replay_labels_encountered.update(old_dataset["labels"][old_order[batch_i*old_batch_size:(batch_i+1)*old_batch_size]])
                 else: # SWIL
-                    this_batch_new = new_dataset["images"]
+                    this_batch_new = new_dataset["images"][order[batch_i*new_batch_size:(batch_i+1)*new_batch_size], :]
 		    if config["SW_by"] == "reps":
 			this_batch_new_reps = self.get_reps(this_batch_new)
 		    else:
@@ -286,7 +286,7 @@ class MNIST_autoenc(object):
 for run in range(config["num_runs"]):
     for left_out_class in range(10): 
 	for replay_type in ["SWIL"]:#, "Random", "None"]:
-	    for temperature in [100, 1000, 10000, 1e5, 1e6]:#[0.1, 0.5, 1, 2, 10]:
+	    for temperature in [0.1, 0.5, 1, 2, 10]:
 		if temperature != 1 and replay_type != "SWIL":
 		    continue 
 		config["softmax_temp"] = temperature # ugly
