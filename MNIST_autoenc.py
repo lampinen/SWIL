@@ -11,7 +11,7 @@ import tensorflow.contrib.slim as slim
 ###### configuration ###########################################################
 
 config = {
-    "num_runs": 1,
+    "num_runs": 10,
     "batch_size": 10,
     "base_learning_rate": 0.001,
     "base_lr_decay": 0.9,
@@ -28,6 +28,8 @@ config = {
     "SW_by": "reps", # one of "images" or "reps", what feature space to do
 		       # the similarity weighting in
     "softmax_temp": 1, # temperature for SWIL replay softmax
+    "SWIL_epsilon": 1e-5, # small constant in denominator for numerical
+			  # stabiility when normalizing by sd
     "output_path": "./results/",
     "layer_sizes": [128, 32, 16, 32, 128]
 }
@@ -141,6 +143,7 @@ class MNIST_autoenc(object):
         """Assuming the model has been trained on old_dataset, tune on
         new_dataset, possibly interleaving from old"""
         softmax_temp = config["softmax_temp"]
+	SWIL_epsilon = config["SWIL_epsilon"]
         batch_size = config["batch_size"]
         if self.replay_type != "None":
             old_batch_size = config["new_batch_num_replay"]
@@ -175,7 +178,7 @@ class MNIST_autoenc(object):
 		# standardize
 		old_dataset_reps_means = np.mean(old_dataset_reps, axis=0)
 		old_dataset_reps_sds = np.std(old_dataset_reps, axis=0)
-		old_dataset_reps = (old_dataset_reps - old_dataset_reps_means)/old_dataset_reps_sds
+		old_dataset_reps = (old_dataset_reps - old_dataset_reps_means)/(old_dataset_reps_sds + SWIL_epsilon) 
 		# normalize
 		old_dataset_reps = to_unit_rows(old_dataset_reps)
 
@@ -194,7 +197,7 @@ class MNIST_autoenc(object):
 		    else:
 			this_batch_new_reps = this_batch_new
                     # standardize
-                    this_batch_new_reps_reps = (this_batch_new_reps - old_dataset_reps_means)/old_dataset_reps_sds
+                    this_batch_new_reps_reps = (this_batch_new_reps - old_dataset_reps_means)/(old_dataset_reps_sds + SWIL_epsilon)
                     # normalize
                     this_batch_new_reps = to_unit_rows(this_batch_new_reps)
 
