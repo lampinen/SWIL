@@ -11,7 +11,7 @@ import tensorflow.contrib.slim as slim
 ###### configuration ###########################################################
 
 config = {
-    "num_runs": 10,
+    "num_runs": 1,
     "batch_size": 10,
     "base_learning_rate": 0.001,
     "base_lr_decay": 0.9,
@@ -57,6 +57,8 @@ def softmax(x, T=1):
     x -= np.amax(x)
     x = np.exp(x)
     x /= np.sum(x)
+    if not(np.any(x)): # handle underflow
+        x = np.ones_like(x)/len(x) 
     return x
 
 def to_unit_rows(x):
@@ -205,6 +207,7 @@ class MNIST_autoenc(object):
                     # large that shouldn't really be an issue unless the temp
                     # is too small...
                     replay_samples = np.where(np.random.multinomial(old_batch_size, probabilities)) 
+                    print(replay_samples)
                     
                     this_batch_images = np.concatenate(
                         [this_batch_new,
@@ -284,9 +287,9 @@ class MNIST_autoenc(object):
 ###### Run stuff ###############################################################
 
 for run in range(config["num_runs"]):
-    for left_out_class in range(10): 
+    for left_out_class in range(1): 
 	for replay_type in ["SWIL"]:#, "Random", "None"]:
-	    for temperature in [0.1, 0.5, 1, 2, 10]:
+	    for temperature in [1e-3, 0.01, 0.1, 1, 10, 100, 1e3]:
 		if temperature != 1 and replay_type != "SWIL":
 		    continue 
 		config["softmax_temp"] = temperature # ugly
