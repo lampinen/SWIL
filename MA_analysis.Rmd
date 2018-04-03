@@ -18,8 +18,7 @@ runs = 0:2
 left_outs = 0:9
 replay_types = c("SWIL", "Random", "None")
 SW_bys = c("images", "reps")
-temperatures = c(0.1, 0.5, 1, 2, 10)
-softmax_temp = 1
+temperatures = c(0.0, 0.1, 1, 10, 100, 100)
 
 loss_d = data.frame()
 encountered_d = data.frame()
@@ -41,7 +40,7 @@ for (run in runs) {
           } else {
             filename_prefix = sprintf("run%i_lo%i_m_%s_", run, lo, replay_type)
           }
-          if (!file.exists(paste(result_path, filename_prefix, "base_test_losses.csv", sep=""))) {
+          if (!file.exists(paste(result_path, filename_prefix, "base_test_losses.csv", sep="")) | !file.exists(paste(result_path, filename_prefix, "new_test_losses.csv", sep=""))) {
             print(paste("Skipping (missing file):", filename_prefix))
             next
           }
@@ -106,6 +105,21 @@ summarized_encountered_d = encountered_d %>%
 ```{r}
 ggplot(summarized_encountered_d %>% filter(left_out == "0"), aes(x=class, y=mean_encountered)) +
   geom_bar(stat="identity") +
+  ylim(0, 1000) +
   facet_wrap( ~replay_type +temperature + SW_by)
 ```
 
+```{r}
+ggsave("results/plots/encountered_lo0.png", width=10, height=10) 
+```
+
+```{r}
+ggplot(summarized_encountered_d %>% filter(left_out == "5"), aes(x=class, y=mean_encountered)) +
+  geom_bar(stat="identity") +
+  ylim(0, 1000) +
+  facet_wrap( ~replay_type +temperature + SW_by)
+```
+
+```{r}
+ggsave("results/plots/encountered_lo5.png", width=10, height=10) 
+```
