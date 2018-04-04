@@ -17,11 +17,11 @@ config = {
     "base_lr_decay": 0.9,
     "base_lr_decays_every": 1,
     "base_lr_min": 0.0001,
-    "new_learning_rate": 0.0001,
+    "new_learning_rate": 0.00002,
     "new_lr_decay": 0.9,
     "new_lr_decays_every": 1,
-    "new_lr_min": 5e-6,
-    "base_training_epochs": 20,
+    "new_lr_min": 1e-6,
+    "base_training_epochs": 40,
     "new_training_epochs": 20,
     "new_batch_num_replay": 5, # how many of batch of new items are replays
                                 # if replay is on
@@ -30,7 +30,7 @@ config = {
     "softmax_temp": 1, # temperature for SWIL replay softmax
     "SWIL_epsilon": 1e-5, # small constant in denominator for numerical
 			  # stabiility when normalizing by sd
-    "output_path": "./results/",
+    "output_path": "./results_40/",
     "layer_sizes": [128, 32, 16, 32, 128]
 }
 
@@ -291,7 +291,7 @@ class MNIST_autoenc(object):
 for run in range(config["num_runs"]):
     for left_out_class in range(10): 
 	for replay_type in ["SWIL", "Random", "None"]:
-	    for temperature in [1e-3, 0.01, 0.1, 1, 10, 100, 1e3]:
+	    for temperature in [0.01, 0.1, 1, 10]:
 		if temperature != 1 and replay_type != "SWIL":
 		    continue 
 		config["softmax_temp"] = temperature # ugly
@@ -299,7 +299,7 @@ for run in range(config["num_runs"]):
 						       left_out_class,
 						       replay_type)
 		if replay_type == "SWIL":
-		    filename_prefix += "swby_%s_t_%.1f_" % (config["SW_by"], config["softmax_temp"]) 
+		    filename_prefix += "swby_%s_t_%.3f_" % (config["SW_by"], config["softmax_temp"]) 
 		print(filename_prefix)
 		np.random.seed(run)
 		tf.set_random_seed(run)
