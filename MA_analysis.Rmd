@@ -13,12 +13,12 @@ library(ggplot2)
 ```
 
 ```{r}
-result_path = "./results/"
+result_path = "./results_40/"
 runs = 0:2
 left_outs = 0:9
 replay_types = c("SWIL", "Random", "None")
 SW_bys = c("images", "reps")
-temperatures = c(0.0, 0.1, 1, 10, 100, 100)
+temperatures = c(0.01, 0.1, 1, 10)
 
 loss_d = data.frame()
 encountered_d = data.frame()
@@ -36,7 +36,7 @@ for (run in runs) {
           }
           
           if (replay_type == "SWIL") {
-            filename_prefix = sprintf("run%i_lo%i_m_%s_swby_%s_t_%.1f_", run, lo, replay_type, SW_by, temperature)
+            filename_prefix = sprintf("run%i_lo%i_m_%s_swby_%s_t_%.3f_", run, lo, replay_type, SW_by, temperature)
           } else {
             filename_prefix = sprintf("run%i_lo%i_m_%s_", run, lo, replay_type)
           }
@@ -94,7 +94,12 @@ ggplot(summarized_loss_d %>% filter(test), aes(x=epoch, y=mean_loss, color=left_
   facet_wrap( ~replay_type +temperature + SW_by)
 ```
 ```{r}
-ggsave("results/plots/summarized_losses.png", width=10, height=10) 
+summarized_loss_d %>% 
+  filter(test, epoch == max(epoch))
+```
+
+```{r}
+ggsave("results_40/plots/summarized_losses.png", width=10, height=10) 
 ```
 
 ```{r}
@@ -105,17 +110,17 @@ ggplot(summarized_loss_d %>% filter(!test), aes(x=epoch, y=mean_loss, color=left
 ```
 
 ```{r}
-ggsave("results/plots/summarized_train_losses.png", width=10, height=10) 
+ggsave("results_40/plots/summarized_train_losses.png", width=10, height=10) 
 ```
 
 ```{r}
-ggplot(summarized_loss_d %>% filter(epoch < 25 & epoch >= 20), aes(x=epoch, y=mean_loss, color=left_out_class)) +
+ggplot(summarized_loss_d %>% filter(epoch < 45 & epoch >= 40 & test), aes(x=epoch, y=mean_loss, color=left_out_class)) +
   geom_line() +
-  ylim(40, 60) +
+  ylim(40, 80) +
   facet_wrap( ~replay_type +temperature + SW_by)
 ```
 ```{r}
-ggsave("results/plots/summarized_losses_20_24.png", width=10, height=10) 
+ggsave("results_40/plots/summarized_losses_40_44.png", width=10, height=10) 
 ```
 
 
@@ -136,7 +141,7 @@ ggplot(summarized_encountered_d %>% filter(left_out == "0"), aes(x=class, y=mean
 ```
 
 ```{r}
-ggsave("results/plots/encountered_lo0.png", width=10, height=10) 
+ggsave("results_40/plots/encountered_lo0.png", width=10, height=10) 
 ```
 
 ```{r}
@@ -147,5 +152,5 @@ ggplot(summarized_encountered_d %>% filter(left_out == "5"), aes(x=class, y=mean
 ```
 
 ```{r}
-ggsave("results/plots/encountered_lo5.png", width=10, height=10) 
+ggsave("results_40/plots/encountered_lo5.png", width=10, height=10) 
 ```
