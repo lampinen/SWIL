@@ -30,7 +30,7 @@ config = {
     "softmax_temp": 1, # temperature for SWIL replay softmax
     "SWIL_epsilon": 1e-5, # small constant in denominator for numerical
 			  # stabiility when normalizing by sd
-    "output_path": "./results_40/",
+    "output_path": "./results_nobias_smallweights/",
     "layer_sizes": [128, 32, 16, 32, 128]
 }
 
@@ -88,12 +88,21 @@ class MNIST_autoenc(object):
         self.lr_ph = tf.placeholder(tf.float32)
 
         self.bottleneck_size = min(layer_sizes)
+
+	# small weight initializer
+	var_scale_init = tf.contrib.layers.variance_scaling_initializer(factor=0.5, mode='FAN_AVG')
+
         net = self.input_ph
         for h_size in layer_sizes:
-            net = slim.layers.fully_connected(net, h_size, activation_fn=tf.nn.relu)
+            net = slim.layers.fully_connected(net, h_size, activation_fn=tf.nn.relu,
+					      weights_initializer=var_scale_init,
+					      biases_initializer=None)
             if h_size == self.bottleneck_size: 
                 self.bottleneck_rep = net
-        self.output = slim.layers.fully_connected(net, 784, activation_fn=tf.nn.sigmoid)
+        self.output = slim.layers.fully_connected(net, 784, activation_fn=tf.nn.sigmoid,
+						  weights_initializer=var_scale_init,
+						  biases_initializer=None)
+						  
         self.loss = tf.nn.l2_loss(self.output-self.input_ph)
 
         self.optimizer = tf.train.GradientDescentOptimizer(self.lr_ph)
@@ -291,7 +300,7 @@ class MNIST_autoenc(object):
 for run in range(config["num_runs"]):
     for left_out_class in range(10): 
 	for replay_type in ["SWIL", "Random", "None"]:
-	    for temperature in [0.01, 0.1, 1, 10]:
+	    for temperature in [0.1, 0.5, 1, 10]:
 		if temperature != 1 and replay_type != "SWIL":
 		    continue 
 		config["softmax_temp"] = temperature # ugly
