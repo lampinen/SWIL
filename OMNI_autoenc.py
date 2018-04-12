@@ -16,13 +16,13 @@ import tensorflow.contrib.slim as slim
 config = {
     "num_runs": 10,
     "batch_size": 10,
-    "base_learning_rate": 0.0001,
+    "base_learning_rate": 0.001,
     "base_lr_decay": 0.9,
-    "base_lr_decays_every": 1,
+    "base_lr_decays_every": 4,
     "base_lr_min": 0.00001,
     "new_learning_rate": 0.00001,
     "new_lr_decay": 1.,
-    "new_lr_decays_every": 50,
+    "new_lr_decays_every": 1,
     "new_lr_min": 1e-6,
     "base_training_epochs": 100,
     "new_training_epochs": 50,
@@ -42,7 +42,6 @@ config = {
 }
 
 ###### OMNIGLOT data loading and manipulation #####################################
-# downloaded from https://pjreddie.com/projects/mnist-in-csv/
 
 def load_omniglot_data(base_dir):
     dataset = {"alphabets": [], "characters": [], "images": []}
@@ -52,7 +51,7 @@ def load_omniglot_data(base_dir):
             for image_file in glob.glob(char_dir + '/*.png'):
                 image = imio.imread(image_file)
                 im_size = config["im_size"] 
-                image = imtransform.resize(image, [im_size, im_size]) 
+                image = 1.-imtransform.resize(image, [im_size, im_size])
                 image = image.flatten()
                 dataset["alphabets"].append(i)
                 dataset["characters"].append(char_num)
@@ -84,7 +83,7 @@ def to_unit_rows(x):
     return x/np.expand_dims(np.sqrt(np.sum(x**2, axis=1)), -1)
 
 def _display_image(x):
-    x = np.reshape(x, [28, 28])
+    x = np.reshape(x, [config["im_size"], config["im_size"]])
     plot.figure()
     plot.imshow(x, vmin=0, vmax=1)
 
@@ -108,7 +107,7 @@ class OMG_autoenc(object):
         self.bottleneck_size = min(layer_sizes)
 
 	# small weight initializer
-	weight_init = tf.contrib.layers.variance_scaling_initializer(factor=0.2, mode='FAN_AVG')
+	weight_init = tf.contrib.layers.variance_scaling_initializer(factor=0.5, mode='FAN_AVG')
 	
 
         net = self.input_ph
@@ -195,6 +194,10 @@ class OMG_autoenc(object):
                     fout.write(("epoch," + ', '.join(["%i"] * 30) + "\n") % tuple(range(30)))
 		    losses = self.eval(test_dataset)
                     fout.write(("0, " + ', '.join(["%f"] * 30) +  "\n") % tuple(losses))
+	    with open(config["output_path"] + log_file_prefix + "new_base_losses.csv", "w") as fout:
+                fout.write(("epoch," + ', '.join(["%i"] * 30) + "\n") % tuple(range(30)))
+		losses = self.eval(old_dataset)
+                fout.write(("0, " + ', '.join(["%f"] * 30) +  "\n") % tuple(losses))
 	    with open(config["output_path"] + log_file_prefix + "new_train_losses.csv", "w") as fout:
                 fout.write(("epoch," + ', '.join(["%i"] * 30) + "\n") % tuple(range(30)))
 		losses = self.eval(new_dataset)
@@ -252,7 +255,7 @@ class OMG_autoenc(object):
                         [this_batch_new,
                          old_dataset["images"][replay_samples]])
 
-                    replay_alphabets_encountered.update(old_dataset["alphabets"][replay_samples])
+                    replay_labels_encountered.update(old_dataset["alphabets"][replay_samples])
 
                 self.sess.run(self.train, feed_dict={
                         self.input_ph: this_batch_images,
@@ -271,12 +274,13 @@ class OMG_autoenc(object):
 		with open(config["output_path"] + log_file_prefix + "new_train_losses.csv", "a") as fout:
 		    losses = self.eval(new_dataset)
                     fout.write((("%i, " % epoch) + ', '.join(["%f"] * 30) + "\n") % tuple(losses))
+		with open(config["output_path"] + log_file_prefix + "new_base_losses.csv", "a") as fout:
+		    losses = self.eval(old_dataset)
+                    fout.write((("%i, " % epoch) + ', '.join(["%f"] * 30) + "\n") % tuple(losses))
 
 	    # update lr
 	    if epoch > 0 and epoch % config["new_lr_decays_every"] == 0 and self.new_lr > config["new_lr_min"]: 
 		self.new_lr *= config["new_lr_decay"]
-
-
 
 
     def get_reps(self, images):
@@ -327,7 +331,7 @@ class OMG_autoenc(object):
 for run in range(config["num_runs"]):
     for left_out_alphabet in range(10): 
 	for replay_type in ["SWIL", "Random", "None"]:
-	    for temperature in [0.1, 0.5, 1]:
+	    for temperature in [1., 0.5, 0.1]:
 		if temperature != 1 and replay_type != "SWIL":
 		    continue 
 		config["softmax_temp"] = temperature # ugly
