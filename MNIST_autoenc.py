@@ -99,16 +99,20 @@ class MNIST_autoenc(object):
         for i, h_size in enumerate(layer_sizes):
 	    if config["nobias"]:
 	      net = slim.layers.fully_connected(net, h_size, activation_fn=tf.nn.relu,
-						weights_initializer=var_scale_init,
+						weights_initializer=weight_init,
 						biases_initializer=None)
 	    else:
 	      net = slim.layers.fully_connected(net, h_size, activation_fn=tf.nn.relu,
-						weights_initializer=var_scale_init)
+						weights_initializer=weight_init)
             if i == bottleneck_layer_i: 
                 self.bottleneck_rep = net
-        self.output = slim.layers.fully_connected(net, 784, activation_fn=tf.nn.sigmoid,
-						  weights_initializer=var_scale_init,
-						  biases_initializer=None)
+	if config["nobias"]:
+	    self.output = slim.layers.fully_connected(net, 784, activation_fn=tf.nn.sigmoid,
+						      weights_initializer=weight_init,
+						      biases_initializer=None)
+	else:
+	    self.output = slim.layers.fully_connected(net, 784, activation_fn=tf.nn.sigmoid,
+						      weights_initializer=weight_init)
 						  
         self.loss = tf.nn.l2_loss(self.output-self.input_ph)
 
