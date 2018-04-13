@@ -19,25 +19,25 @@ config = {
     "base_learning_rate": 0.001,
     "base_lr_decay": 0.9,
     "base_lr_decays_every": 4,
-    "base_lr_min": 0.00001,
-    "new_learning_rate": 0.00001,
+    "base_lr_min": 0.00005,
+    "new_learning_rate": 0.00005,
     "new_lr_decay": 1.,
     "new_lr_decays_every": 1,
     "new_lr_min": 1e-6,
     "base_training_epochs": 100,
     "new_training_epochs": 50,
-    "new_batch_num_replay": 5, # how many of batch of new items are replays
+    "new_batch_num_replay": 9, # how many of batch of new items are replays
                                 # if replay is on
     "SW_by": "reps", # one of "images" or "reps", what feature space to do
 		       # the similarity weighting in
     "softmax_temp": 1, # temperature for SWIL replay softmax
     "SWIL_epsilon": 1e-5, # small constant in denominator for numerical
 			  # stabiility when normalizing by sd
-    "OMG_train_dir": "/home/andrew/Documents/datasets/omniglot/python/images_background/", # omniglot training directory
-    "OMG_test_dir": "/home/andrew/Documents/datasets/omniglot/python/images_evaluation/", # omniglot testing directory
+    "OMG_train_dir": "./omniglot_data/images_background/", # omniglot training directory
+    "OMG_test_dir": "./omniglot_data/images_evaluation/", # omniglot testing directory
     "im_size": 50, # image width/height to resize image
     "output_path": "./omniglot_results/",
-    "nobias": False, # no biases
+    "nobias": True, # no biases
     "layer_sizes": [1024, 512, 512, 512, 1024]
 }
 
@@ -330,8 +330,8 @@ class OMG_autoenc(object):
 
 for run in range(config["num_runs"]):
     for left_out_alphabet in range(10): 
-	for replay_type in ["SWIL", "Random", "None"]:
-	    for temperature in [1., 0.5, 0.1]:
+	for replay_type in ["Random", "SWIL", "None"]:
+	    for temperature in [1., 0.5, 0.1, 2., 10.]:
 		if temperature != 1 and replay_type != "SWIL":
 		    continue 
 		config["softmax_temp"] = temperature # ugly
