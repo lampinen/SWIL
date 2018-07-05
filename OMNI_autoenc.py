@@ -40,8 +40,10 @@ config = {
     "output_path": "./omniglot_results_euclidean/",
     "nobias": True, # no biases
     "similarity_by": "euclidean", # Cosine distance or euclidean
-    "layer_sizes": [256, 64, 32, 64, 256]
+    "layer_sizes": [1024, 512, 256, 512, 1024]
 }
+output_nonlinearity = None # tf.nn.sigmoid
+internal_nonlinearity = None # tf.nn.relu
 
 ###### OMNIGLOT data loading and manipulation #####################################
 
@@ -116,20 +118,20 @@ class OMG_autoenc(object):
 	bottleneck_layer_i = len(layer_sizes)//2
         for i, h_size in enumerate(layer_sizes):
 	    if config["nobias"]:
-	      net = slim.layers.fully_connected(net, h_size, activation_fn=tf.nn.relu,
+	      net = slim.layers.fully_connected(net, h_size, activation_fn=internal_nonlinearity,
 						weights_initializer=weight_init,
 						biases_initializer=None)
 	    else:
-	      net = slim.layers.fully_connected(net, h_size, activation_fn=tf.nn.relu,
+	      net = slim.layers.fully_connected(net, h_size, activation_fn=internal_nonlinearity,
 						weights_initializer=weight_init)
             if i == bottleneck_layer_i: 
                 self.bottleneck_rep = net
 	if config["nobias"]:
-	    self.output = slim.layers.fully_connected(net, flat_im_size, activation_fn=tf.nn.sigmoid,
+	    self.output = slim.layers.fully_connected(net, flat_im_size, activation_fn=output_nonlinearity,
 						      weights_initializer=weight_init,
 						      biases_initializer=None)
 	else:
-	    self.output = slim.layers.fully_connected(net, flat_im_size, activation_fn=tf.nn.sigmoid,
+	    self.output = slim.layers.fully_connected(net, flat_im_size, activation_fn=output_nonlinearity,
 						      weights_initializer=weight_init)
 						  
         self.loss = tf.nn.l2_loss(self.output-self.input_ph)
