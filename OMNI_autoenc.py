@@ -25,7 +25,7 @@ config = {
     "new_lr_decay": 1.,
     "new_lr_decays_every": 1,
     "new_lr_min": 1e-6,
-    "base_training_epochs": 1, # TODO
+    "base_training_epochs": 100, # TODO
     "new_training_epochs": 100,
     "new_batch_num_replay": 8, # how many of batch of new items are replays
                                 # if replay is on
@@ -248,8 +248,7 @@ class OMG_autoenc(object):
 			probabilities = softmax(np.amax(dots, axis=1), T=softmax_temp) 
 		    else: 
 			dists = cdist(this_batch_new_reps, old_dataset_reps, metric="euclidean") 
-			probabilities = softmax(-dists, T=softmax_temp) 
-			  
+			probabilities = softmax(-np.amax(dists.transpose(), axis=1), T=softmax_temp) 
                 
                     # note that this is actually pretending that sampling with
                     # replacement is sampling without, but on a dataset this 
