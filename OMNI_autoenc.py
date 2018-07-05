@@ -5,6 +5,7 @@ from collections import Counter
 import glob
 
 import numpy as np
+from scipy.spatial.distance import cdist
 import skimage.io as imio
 import skimage.transform as imtransform
 import tensorflow as tf
@@ -19,14 +20,14 @@ config = {
     "base_learning_rate": 0.001,
     "base_lr_decay": 0.9,
     "base_lr_decays_every": 4,
-    "base_lr_min": 0.00005,
-    "new_learning_rate": 0.00005,
+    "base_lr_min": 0.0001,
+    "new_learning_rate": 0.0001,
     "new_lr_decay": 1.,
     "new_lr_decays_every": 1,
     "new_lr_min": 1e-6,
-    "base_training_epochs": 100,
-    "new_training_epochs": 50,
-    "new_batch_num_replay": 9, # how many of batch of new items are replays
+    "base_training_epochs": 1, # TODO
+    "new_training_epochs": 100,
+    "new_batch_num_replay": 8, # how many of batch of new items are replays
                                 # if replay is on
     "SW_by": "reps", # one of "images" or "reps", what feature space to do
 		       # the similarity weighting in
@@ -36,8 +37,9 @@ config = {
     "OMG_train_dir": "./omniglot_data/images_background/", # omniglot training directory
     "OMG_test_dir": "./omniglot_data/images_evaluation/", # omniglot testing directory
     "im_size": 50, # image width/height to resize image
-    "output_path": "./omniglot_results/",
+    "output_path": "./omniglot_results_euclidean/",
     "nobias": True, # no biases
+    "similarity_by": "euclidean", # Cosine distance or euclidean
     "layer_sizes": [1024, 512, 256, 512, 1024]
 }
 output_nonlinearity = None # tf.nn.sigmoid
@@ -109,7 +111,7 @@ class OMG_autoenc(object):
         self.bottleneck_size = min(layer_sizes)
 
 	# small weight initializer
-	weight_init = tf.contrib.layers.variance_scaling_initializer(factor=0.5, mode='FAN_AVG')
+	weight_init = tf.contrib.layers.variance_scaling_initializer(factor=0.3, mode='FAN_AVG')
 	
 
         net = self.input_ph
@@ -221,8 +223,9 @@ class OMG_autoenc(object):
 		old_dataset_reps_means = np.mean(old_dataset_reps, axis=0)
 		old_dataset_reps_sds = np.std(old_dataset_reps, axis=0)
 		old_dataset_reps = (old_dataset_reps - old_dataset_reps_means)/(old_dataset_reps_sds + SWIL_epsilon) 
-		# normalize
-		old_dataset_reps = to_unit_rows(old_dataset_reps)
+		if config["similarity_by"] == "cosine":
+		  # normalize
+		  old_dataset_reps = to_unit_rows(old_dataset_reps)
 
             for batch_i in xrange(len(new_dataset["alphabets"])//batch_size):
                 if self.replay_type == "None":
@@ -240,12 +243,15 @@ class OMG_autoenc(object):
 			this_batch_new_reps = this_batch_new
                     # standardize
                     this_batch_new_reps_reps = (this_batch_new_reps - old_dataset_reps_means)/(old_dataset_reps_sds + SWIL_epsilon)
-                    # normalize
-                    this_batch_new_reps = to_unit_rows(this_batch_new_reps)
-
-                    dots = np.dot(old_dataset_reps, this_batch_new_reps.transpose())
-
-                    probabilities = softmax(np.amax(dots, axis=1), T=softmax_temp) 
+		    if config["similarity_by"] == "cosine":
+			# normalize
+			this_batch_new_reps = to_unit_rows(this_batch_new_reps)
+			dots = np.dot(old_dataset_reps, this_batch_new_reps.transpose())
+			probabilities = softmax(np.amax(dots, axis=1), T=softmax_temp) 
+		    else: 
+			dists = cdist(this_batch_new_reps, old_dataset_reps, metric="euclidean") 
+			probabilities = softmax(-dists, T=softmax_temp) 
+			  
                 
                     # note that this is actually pretending that sampling with
                     # replacement is sampling without, but on a dataset this 
@@ -269,6 +275,7 @@ class OMG_autoenc(object):
 		if self.replay_type != "None": 
 		    with open(config["output_path"] + log_file_prefix + "replay_labels_encountered.csv", "a") as fout:
 			counts = [replay_labels_encountered[i] for i in range(30)] 
+                        fout.write((("%i, " % epoch) + ', '.join(["%i"] * 30) + "\n") % tuple(counts))
 		if test_dataset is not None:
 		    with open(config["output_path"] + log_file_prefix + "new_test_losses.csv", "a") as fout:
 			losses = self.eval(test_dataset)
@@ -332,7 +339,7 @@ class OMG_autoenc(object):
 
 for run in range(config["num_runs"]):
     for left_out_alphabet in range(10): 
-	for replay_type in ["Random", "SWIL", "None"]:
+	for replay_type in ["SWIL", "Random",  "None"]:
 	    for temperature in [1., 0.5, 0.1, 2., 10.]:
 		if temperature != 1 and replay_type != "SWIL":
 		    continue 
