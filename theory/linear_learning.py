@@ -78,6 +78,7 @@ for run_i in range(num_runs):
         b0 = W32 
         est1 = _estimated_learning_time(a0, b0, s, epsilon, tau)
         est1_times, est1_epsilons = _estimated_learning_times(a0, b0, s, tau)
+        est1_init_loss = np.mean(np.square(sigma_31)) # initial outputs ~= 0
 
         # learning from random init -- empirical
         W21, W32, first_tracks = _train(sigma_31, sigma_11, W21, W32, num_epochs)   
@@ -92,6 +93,7 @@ for run_i in range(num_runs):
         b0 = W32 
         est2 = _estimated_learning_time(a0, b0, s, epsilon, tau)
         est2_times, est2_epsilons = _estimated_learning_times(a0, b0, s, tau)
+        est2_init_loss = np.mean(np.square(new_sigma_31-sigma_31))
 
         # updating to new situation --empirical 
         W21, W32, second_tracks = _train(new_sigma_31, sigma_11, W21, W32, num_epochs)
@@ -114,7 +116,7 @@ for run_i in range(num_runs):
         plot.figure()
         plot.plot(epochs, second_tracks["loss"])
 #        plot.axvline(x=est2, color='r')
-        plot.plot(est2_times, est2_epsilons/np.amax(est2_epsilons)*second_tracks["loss"][0], color='r')
+        plot.plot(est2_times, est2_epsilons/np.amax(est2_epsilons)*est2_init_loss, color='r')
         plot.xlabel("epoch")
         plot.ylabel("loss (second phase)")
         plot.legend(["Empirical", "Theory"])
