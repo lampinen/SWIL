@@ -44,6 +44,17 @@ def _estimated_learning_time(a0, b0, s, epsilon, tau):
     t = (tau/sc)*(_ugly_function(sc, c0, 2*s, thetaf) - _ugly_function(sc, c0, 2*s, theta0))
     return t
 
+def _estimated_learning_times(a0, b0, s, tau, num_points=100):
+    c0 = np.abs(a0**2 - b0**2) / 2.
+    start = a0*b0/s
+    end = 1.0
+    alignments = np.arange(start, end, (1./num_points) *(end-start) ) 
+    epsilons = 1.-alignments
+    times = np.zeros(len(alignments))
+    for i in range(1, len(alignments)):
+        times[i] = _estimated_learning_time(a0, b0, s, epsilons[i], tau)
+    
+    return times, epsilons
 
 for run_i in range(num_runs):
     for s in esses:
@@ -66,42 +77,46 @@ for run_i in range(num_runs):
         a0 = np.dot(W21, original_mode)
         b0 = W32 
         est1 = _estimated_learning_time(a0, b0, s, epsilon, tau)
+        est1_times, est1_epsilons = _estimated_learning_times(a0, b0, s, tau)
 
         # learning from random init -- empirical
         W21, W32, first_tracks = _train(sigma_31, sigma_11, W21, W32, num_epochs)   
-        print(est1)
-        est1_int = int(est1)
-        print(np.dot(first_tracks["W21"][est1_int, :], original_mode))
-        print(first_tracks["W32"][est1_int, :])
-        print(s * (1-epsilon))
+#        print(est1)
+#        est1_int = int(est1)
+#        print(np.dot(first_tracks["W21"][est1_int, :], original_mode))
+#        print(first_tracks["W32"][est1_int, :])
+#        print(s * (1-epsilon))
         
         # updating to new situation -- theory
         a0 = np.dot(W21, new_mode)
         b0 = W32 
         est2 = _estimated_learning_time(a0, b0, s, epsilon, tau)
+        est2_times, est2_epsilons = _estimated_learning_times(a0, b0, s, tau)
 
         # updating to new situation --empirical 
         W21, W32, second_tracks = _train(new_sigma_31, sigma_11, W21, W32, num_epochs)
-        print(est2)
-        est2_int = int(est2)
-        print(np.dot(second_tracks["W21"][est2_int, :], new_mode))
-        print(second_tracks["W32"][est2_int, :])
-        print(s * (1-epsilon))
+#        print(est2)
+#        est2_int = int(est2)
+#        print(np.dot(second_tracks["W21"][est2_int, :], new_mode))
+#        print(second_tracks["W32"][est2_int, :])
+#        print(s * (1-epsilon))
 
         # plotting
         epochs = range(num_epochs)
         plot.figure()
         plot.plot(epochs, first_tracks["loss"])
-        plot.axvline(x=est1, color='r')
+#        plot.axvline(x=est1, color='r')
+        plot.plot(est1_times, est1_epsilons/np.amax(est1_epsilons)*first_tracks["loss"][0], color='r')
         plot.xlabel("epoch")
         plot.ylabel("loss (first phase)")
-        plot.legend(["Empirical", "Theoretical time of 99% learning"])
+        plot.legend(["Empirical", "Theory"])
         plot.savefig("results/singular_value_%.2f_initial_learning.png" % s)
         plot.figure()
         plot.plot(epochs, second_tracks["loss"])
-        plot.axvline(x=est2, color='r')
+#        plot.axvline(x=est2, color='r')
+        plot.plot(est2_times, est2_epsilons/np.amax(est2_epsilons)*second_tracks["loss"][0], color='r')
         plot.xlabel("epoch")
         plot.ylabel("loss (second phase)")
-        plot.legend(["Empirical", "Theoretical time of 99% learning"])
+        plot.legend(["Empirical", "Theory"])
         plot.savefig("results/singular_value_%.2f_adjusting.png" % s)
         
