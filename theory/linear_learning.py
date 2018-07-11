@@ -7,11 +7,11 @@ num_runs = 1
 num_input = 100
 num_output = 1 # TODO: only partially implemented
 rank = 1 # TODO: Probably impossible 
-num_epochs = 5000
+num_epochs = 10000
 esses = [10, 5, 2]
-init_size = 1e-4
+init_size = 1e-5
 epsilon = 0.01
-lr = 0.001
+lr = 1e-3
 #############
 tau = 1./lr 
 
@@ -35,7 +35,7 @@ def _ugly_function(sc, c0, two_s, theta):
     return np.log((sc + c0 + two_s*np.tanh(theta/2.))/(sc - (c0 + two_s*np.tanh(theta/2.))))
 
 def _estimated_learning_time(a0, b0, s, epsilon, tau):
-    c0 = np.abs(a0**2 - b0**2) / 2.
+    c0 = np.abs(a0**2 - b0**2) 
     theta0 = np.arcsinh(2*a0*b0/c0)
     thetaf = np.arcsinh((1-epsilon) * 2*s/ c0)
 
