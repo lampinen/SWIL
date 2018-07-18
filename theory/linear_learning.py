@@ -27,6 +27,9 @@ def _train(sigma_31, sigma_11, W21, W32, num_epochs, track_mode_alignment=False,
         }
     if track_mode_alignment:
         tracks["alignment"] = np.zeros([num_epochs+1])
+        vec0, vec1 = _get_rep_modes(W21, W32, new_input_modes,
+                                    new_output_modes, orthogonal=False)
+        tracks["alignment"][0] = np.dot(vec0, vec1)
 
     l = sigma_31 - np.dot(W32, np.dot(W21, sigma_11))
     tracks["loss"][0] = np.sum(np.square(l))
@@ -86,7 +89,7 @@ def _get_rep_modes(W21, W32, new_input_modes, new_output_modes, orthogonal=True)
 def _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes):
     a0s = np.dot(W21, new_input_modes.transpose())
     b0s = np.dot(W32.transpose(), new_output_modes.transpose()) 
-    vec0, vec1 = _get_rep_modes(W21, W32, new_input_modes, new_output_modes, True)
+    vec0, vec1 = _get_rep_modes(W21, W32, new_input_modes, new_output_modes, False)
     a00 = np.sum((a0s[:, 0]**2)*vec0)
     a00 = np.sign(a00) * np.sqrt(np.abs(a00))
     b00 = np.sum((b0s[:, 0]**2)*vec0)
