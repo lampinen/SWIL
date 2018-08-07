@@ -1,0 +1,34 @@
+\documentclass{article}
+
+\usepackage{url}            
+\usepackage{booktabs}       
+\usepackage{amsfonts}       
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{nicefrac}       
+\usepackage{microtype}      
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{natbib}
+\usepackage[margin=1in]{geometry}
+
+\newcommand{\R}{\mathbb{R}}
+
+\begin{document}
+\citet{Saxe2014} provided (in part A of their supplementary material) solutions to learning dynamics in linear networks from arbitrary initial mode strengths, with some assumptions about the initialization and the structure of the data. We note a minor correction to these solutions and build off them here. \par
+Consider the input-output correlation matrix $\Sigma_{31} = \sum_{i=1}^P y_ix_i^t$ where $\{(x_1, y_), ..., (x_P, y_P)\}$ are the (input, target) pairs the network is trained on. Saxe and colleagues considered its singular value decomposition:
+$$\Sigma_{31} = \sum_{\alpha=1}^{k} u_\alpha s_\alpha v_\alpha^T$$
+Saxe and colleagues assumed that the input-input correlation matrix is white ($\Sigma_11 = \sum_{i=1}^P x_i x_i^t = I$), and under the assumption that the network is initialized so that the singular value modes are decoupled, they showed that the modes then remained decoupled and gave exact solutions for the learning of these modes from small initial weights. In the supplementary material, they also expanded this to arbitrary initial weight size (but still assuming decoupled initialization). \par
+Specifically, consider singular mode $i$. For ease of explanation, we change the basis of the representational layer of the network so each mode is represented by a single hidden unit -- this is permissable because we assumed the modes were decoupled. (This is equivalent to the change of variables denoted by bars by Saxe and colleagues.) Let the initial projection of this unit's input weights onto the input mode $v_i$ be $a(0)$, and the initial projection of its output weights onto the output mode $u_i$ be $b(0)$. Saxe and colleagues showed that $(a(t), b(t))$ evolve over time along hyberolas of constant $a^2-b^2$ until it approaches $ab = s_i$, i.e. the true strength of that mode in the data. \par
+We parameterize this hyperbola by the angle $\theta$ and make the change of variables
+$$a = \sqrt{2c_0} \cosh \frac{\theta}{2}, \qquad b = \sqrt{2c_0} \sinh \frac{\theta}{2}$$
+Where $c_0 = 2 (a(0)^2-b(0)^2)$ so that
+$$ab = c_0 \sinh \theta$$
+Following their derivation with this change of variables, we arrive at:
+$$\frac{\tau}{2} \frac{d\theta}{dt} = s_i - c_0 \sinh \theta$$
+(the factor of two can also be absorbed into the time constant $\tau$, we leave it separate here to avoid changing the definition of $\tau = 1/\lambda$ from the original paper). \par
+This differential equation is seperable, and so we can solve for the time needed to traverse along the hyperbola from an initial point $\theta_0$ to a final point $\theta_f$:
+$$t = \frac{\tau}{2\sqrt{c_0^2 + s_i^2}} \left[\ln \frac{\sqrt{c_0^2 + s_i^2} + c_0 + s \tanh \frac{\theta}{2}}{\sqrt{c_0^2 + s_i^2} - c_0 - s \tanh \frac{\theta}{2}}\right]_{\theta_0}^{\theta_f}$$
+
+
+\end{document}
