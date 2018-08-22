@@ -164,7 +164,12 @@ for run_i in range(num_runs):
                 est2_1_times, est2_1_epsilons = _estimated_learning_times(a01, b01, s_new, tau)
                 est2_1_times += second_start_time # offset
                 #est2_1_init_loss = (s_new - a01*b01)**2 # necessary if a01 * b01 is not << s_new
+                
+                # get rid of gap in plot
+                est2_1_times = np.concatenate([[0], est2_1_times])
+                est2_1_epsilons = np.concatenate([[np.amax(est2_1_epsilons)], est2_1_epsilons])
 
+                # updating to new situation --empirical  
                 W21, W32, second_tracks_2 = _train(new_sigma_31, sigma_11, W21, W32, num_epochs-second_start_time,
                                                  True, new_input_modes, new_output_modes)
 
