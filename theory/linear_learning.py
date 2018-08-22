@@ -12,11 +12,13 @@ esses = [5]#[10, 5, 3]
 s_new = 2
 init_size = 1e-5
 epsilon = 0.01
-overlap = 0.9
+overlap = 0.75
 lr = 1e-3
+rseed = 0
 second_start_time = 3000
 #############
 tau = 1./lr 
+np.random.seed(rseed) # reproducibility
 
 def _train(sigma_31, sigma_11, W21, W32, num_epochs, track_mode_alignment=False,
            new_input_modes=None, new_output_modes=None,):
@@ -48,16 +50,17 @@ def _train(sigma_31, sigma_11, W21, W32, num_epochs, track_mode_alignment=False,
     return W21, W32, tracks
 
 def _ugly_function(sc, c0, s, theta):
-    return np.log((sc + c0 + s*np.tanh(theta/2.))/(sc - (c0 + s*np.tanh(theta/2.))))
+#    return np.log((sc + c0 + s*np.tanh(theta/2.))/(sc - (c0 + s*np.tanh(theta/2.))))
+    return np.arctanh((c0 + s*np.tanh(theta/2.))/sc) # simpler form than the one given in Saxe et al. 
 
 def _estimated_learning_time(a0, b0, s, epsilon, tau):
-    c0 = 0.5*np.abs(a0**2 - b0**2) 
+    c0 = np.abs(a0**2 - b0**2) 
     theta0 = np.arcsinh(a0*b0/c0)
-    thetaf = np.arcsinh((1-epsilon) * s/ c0)
+    thetaf = np.arcsinh((1-epsilon) * s/c0)
 
     sc = np.sqrt((c0)**2 + (s)**2)
 
-    t = (0.5*tau/sc)*(_ugly_function(sc, c0, s, thetaf) - _ugly_function(sc, c0, s, theta0))
+    t = (tau/sc)*(_ugly_function(sc, c0, s, thetaf) - _ugly_function(sc, c0, s, theta0))
     return t
 
 def _estimated_learning_times(a0, b0, s, tau, num_points=1000):
@@ -102,7 +105,7 @@ def _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_m
     return a00, b00, a01, b01
 
 for run_i in range(num_runs):
-    for new_mode in ["partially_aligned", "orthogonal"]:
+    for new_mode in ["orthogonal", "partially_aligned"]:
         for s in esses:
             new_input_modes = random_orthogonal(num_input)[0:3, :]
             new_output_modes = random_orthogonal(num_output)[0:3, :]
@@ -147,22 +150,39 @@ for run_i in range(num_runs):
             est2_0_init_loss = s**2 *2 *(1 - overlap**2) if new_mode == "orthogonal" else 2 *( s**2 - s * s_new) *  (1 - overlap**2)  
             est2_1_init_loss = (s_new)**2
 
-            # updating to new situation --empirical  
 
-            W21, W32, second_tracks = _train(new_sigma_31, sigma_11, W21, W32, second_start_time,
-                                             True, new_input_modes, new_output_modes)
+            if second_start_time > 0:
+                print("Staggering theory starts")
+                # updating to new situation --empirical  
 
-            # updating to new situation -- semi-theory starting from after first mode learning is approximately done
-            # still isn't perfect because modes aren't truly orthogonal until too late in the learning process
-            _, _, a01, b01 = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes)
-            est2_1_times, est2_1_epsilons = _estimated_learning_times(a01, b01, s_new, tau)
-            est2_1_times += second_start_time # offset
+                W21, W32, second_tracks = _train(new_sigma_31, sigma_11, W21, W32, second_start_time,
+                                                 True, new_input_modes, new_output_modes)
 
-            W21, W32, second_tracks_2 = _train(new_sigma_31, sigma_11, W21, W32, num_epochs-second_start_time,
-                                             True, new_input_modes, new_output_modes)
+                # updating to new situation -- semi-theory starting from after first mode learning is approximately done
+                # still isn't perfect because modes aren't truly orthogonal until too late in the learning process
+                _, _, a01, b01 = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes)
+                est2_1_times, est2_1_epsilons = _estimated_learning_times(a01, b01, s_new, tau)
+                est2_1_times += second_start_time # offset
+                #est2_1_init_loss = (s_new - a01*b01)**2 # necessary if a01 * b01 is not << s_new
 
-            for key in second_tracks.keys():
-                second_tracks[key] = np.concatenate([second_tracks[key], second_tracks_2[key][1:]], 0)
+                W21, W32, second_tracks_2 = _train(new_sigma_31, sigma_11, W21, W32, num_epochs-second_start_time,
+                                                 True, new_input_modes, new_output_modes)
+
+                for key in second_tracks.keys():
+                    second_tracks[key] = np.concatenate([second_tracks[key], second_tracks_2[key][1:]], 0)
+    
+                staggered_string = "_staggered" # appended to filenames
+            else:
+                print("Not staggering theory starts")
+                # updating to new situation -- second mode theory 
+                est2_1_times, est2_1_epsilons = _estimated_learning_times(a01, b01, s_new, tau)
+
+                # updating to new situation --empirical  
+                W21, W32, second_tracks = _train(new_sigma_31, sigma_11, W21, W32, num_epochs,
+                                                 True, new_input_modes, new_output_modes)
+
+                staggered_string = ""
+
 
             # plotting
             adjusting_loss = est2_0_epsilons/np.amax(est2_0_epsilons)*est2_0_init_loss
@@ -177,22 +197,22 @@ for run_i in range(num_runs):
 
             plot.figure()
             plot.plot(epochs, first_tracks["loss"], ".")
-            plot.plot(est1_times, est1_epsilons/np.amax(est1_epsilons)*est1_init_loss, color='r')
+            plot.plot(est1_times, est1_epsilons*est1_init_loss, color='r')
             plot.xlabel("Epoch")
-            plot.ylabel("Loss (first phase)")
+            plot.ylabel("Loss (initial learning)")
             plot.legend(["Empirical", "Theory"])
-            plot.savefig("results/singular_value_%.2f_condition_%s_initial_learning.png" % (s, new_mode))
+            plot.savefig("results/singular_value_%.2f_condition_%s_initial_learning%s.png" % (s, new_mode, staggered_string))
             plot.figure()
             plot.plot(epochs, second_tracks["loss"], ".")
             plot.plot(est2_0_times, adjusting_loss)
             plot.plot(est2_1_times, new_loss)
             plot.plot(epochs, approx_summed_loss)
             plot.xlabel("Epoch")
-            plot.ylabel("Loss (second phase)")
+            plot.ylabel("Loss (adjusting)")
             plot.legend(["Empirical", "Theory (adjusted mode)", "Theory (new mode)", "Theory (total)"])
-            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting.png" % (s, new_mode))
+            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting%s.png" % (s, new_mode, staggered_string))
             plot.figure()
             plot.plot(epochs, second_tracks["alignment"], color='#550055')
             plot.xlabel("Epoch")
             plot.ylabel("Empirical representation alignment")
-            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_rep_alignment.png" % (s, new_mode))
+            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_rep_alignment%s.png" % (s, new_mode, staggered_string))

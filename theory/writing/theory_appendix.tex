@@ -30,7 +30,8 @@ Following their derivation with this change of variables, we arrive at:
 $$\frac{\tau}{2} \frac{d\theta}{dt} = s_i - c_0 \sinh \theta$$
 (the factor of two can also be absorbed into the time constant $\tau$, we leave it separate here to avoid changing the definition of $\tau = 1/\lambda$ from the original paper). \par
 This differential equation is seperable, and so we can solve for the time needed to traverse along the hyperbola from an initial point $\theta_0$ to a final point $\theta_f$:
-$$t = \frac{\tau}{2\sqrt{c_0^2 + s_i^2}} \left[\ln \frac{\sqrt{c_0^2 + s_i^2} + c_0 + s_i \tanh \frac{\theta}{2}}{\sqrt{c_0^2 + s_i^2} - c_0 - s_i \tanh \frac{\theta}{2}}\right]_{\theta_0}^{\theta_f}$$
+%%$$t = \frac{\tau}{2\sqrt{c_0^2 + s_i^2}} \left[\ln \frac{\sqrt{c_0^2 + s_i^2} + c_0 + s_i \tanh \frac{\theta}{2}}{\sqrt{c_0^2 + s_i^2} - c_0 - s_i \tanh \frac{\theta}{2}}\right]_{\theta_0}^{\theta_f}$$
+$$t = \frac{\tau}{\sqrt{c_0^2 + s_i^2}} \left[\tanh^{-1} \left( \frac{c_0 + s_i \tanh\left( \frac{\theta}{2} \right)}{\sqrt{c_0^2+s_i^2}}\right)\right]_{\theta_0}^{\theta_f}$$ % simpler form
 This provides an exact analytic solution for the time a given degree of learning requires. Although this equation cannot be analytically inverted to find $\theta(t)$ (and thereby $a(t)$ and $b(t)$), we can parametrically sweep through the interval $(\theta_0, \theta_f)$ to plot the theoretical learning curve. \par
 %%To aid interpretation, we reverse the substitution:
 %%$$t = \frac{\tau}{2\sqrt{c_0^2 + s_i^2}} \left[\ln \frac{\sqrt{c_0^2 + s_i^2} + c_0 + s_i \frac{b}{a}}{\sqrt{c_0^2 + s_i^2} - c_0 - s_i \frac{b}{a}}\right]_{(a(0), b(0))}^{(a(t_f), b(t_f))}$$
