@@ -8,7 +8,7 @@ num_input = 100
 num_output = 400 
 rank = 2 # other ranks not supported yet 
 num_epochs = 10000
-esses = [10, 5, 3]
+esses = [5]#[10, 5, 3]
 s_new = 2
 init_size = 1e-5
 epsilon = 0.01
@@ -51,7 +51,7 @@ def _ugly_function(sc, c0, s, theta):
     return np.log((sc + c0 + s*np.tanh(theta/2.))/(sc - (c0 + s*np.tanh(theta/2.))))
 
 def _estimated_learning_time(a0, b0, s, epsilon, tau):
-    c0 = 2*np.abs(a0**2 - b0**2) 
+    c0 = 0.5*np.abs(a0**2 - b0**2) 
     theta0 = np.arcsinh(a0*b0/c0)
     thetaf = np.arcsinh((1-epsilon) * s/ c0)
 
@@ -176,14 +176,14 @@ for run_i in range(num_runs):
                 approx_summed_loss[i] += new_loss[this_index_2] 
 
             plot.figure()
-            plot.plot(epochs, first_tracks["loss"])
+            plot.plot(epochs, first_tracks["loss"], ".")
             plot.plot(est1_times, est1_epsilons/np.amax(est1_epsilons)*est1_init_loss, color='r')
             plot.xlabel("Epoch")
             plot.ylabel("Loss (first phase)")
             plot.legend(["Empirical", "Theory"])
             plot.savefig("results/singular_value_%.2f_condition_%s_initial_learning.png" % (s, new_mode))
             plot.figure()
-            plot.plot(epochs, second_tracks["loss"])
+            plot.plot(epochs, second_tracks["loss"], ".")
             plot.plot(est2_0_times, adjusting_loss)
             plot.plot(est2_1_times, new_loss)
             plot.plot(epochs, approx_summed_loss)
