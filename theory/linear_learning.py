@@ -101,14 +101,14 @@ def _estimated_learning_times(a0, b0, s, tau, num_points=1000):
 def _get_rep_modes(W21, W32, new_input_modes, new_output_modes, orthogonal=True):
     a0s = np.dot(W21, new_input_modes.transpose())
     b0s = np.dot(W32.transpose(), new_output_modes.transpose()) 
-    vec0 = a0s[:, 0] * b0s[:, 0]
+    vec0 = np.sqrt(a0s[:, 0] * b0s[:, 0])
     vec0 *= np.sign(a0s[:, 0])
     vec0 /= np.linalg.norm(vec0)
     if orthogonal:
         vec1 = np.copy(vec0)[::-1] 
         vec1[1] *= -1
     else:
-        vec1 = a0s[:, 1] * b0s[:, 1]
+        vec1 = np.sqrt(a0s[:, 1] * b0s[:, 1])
         vec1 *= np.sign(a0s[:, 1])
         vec1 /= np.linalg.norm(vec1)
     return vec0, vec1
@@ -117,14 +117,14 @@ def _get_rep_modes(W21, W32, new_input_modes, new_output_modes, orthogonal=True)
 #    a0s = np.dot(W21, new_input_modes.transpose())
 #    b0s = np.dot(W32.transpose(), new_output_modes.transpose()) 
 #    vec0, vec1 = _get_rep_modes(W21, W32, new_input_modes, new_output_modes, False)
-#    a00 = np.sum((a0s[:, 0]**2)*vec0)
+#    a00 = np.sum((a0s[:, 0]**2))
 #    a00 = np.sign(a00) * np.sqrt(np.abs(a00))
-#    b00 = np.sum((b0s[:, 0]**2)*vec0)
+#    b00 = np.sum((b0s[:, 0]**2))
 #    b00 = np.sign(b00) * np.sqrt(np.abs(b00))
 #    index2 = 2 if new_mode == "orthogonal" else 1
-#    a01 = np.sum((a0s[:, index2]**2)*vec1)
+#    a01 = np.sum((a0s[:, index2]**2))
 #    a01 = np.sign(a01) * np.sqrt(np.abs(a01))
-#    b01 = np.sum((b0s[:, index2]**2)*vec1)
+#    b01 = np.sum((b0s[:, index2]**2))
 #    b01 = np.sign(b01) * np.sqrt(np.abs(b01))
 #    return a00, b00, a01, b01
 
@@ -133,15 +133,12 @@ def _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_m
     U32, S32, V32 = np.linalg.svd(W32, full_matrices=False)
     a0s = np.dot(V21[:rank, :], new_input_modes.transpose())
     b0s = np.dot(U32[:, :rank].transpose(), new_output_modes.transpose()) 
+    index2 = 2 if new_mode == "orthogonal" else 1
     # these abs calls don't generalize to the case that the modes actually start
     # with alignment less than 0, but save me calculating the alignment
     # in the rep space
-    U, S, V = np.linalg.svd(np.dot(W32, W21), full_matrices=False)
-    print(S21, S32, S[:3])
-    print(a0s, b0s)
-    a00 = S21[0] * np.abs(a0s[0, 0]) 
+    a00 = S21[0] * np.abs(a0s[0, 0])
     b00 = S32[0] * np.abs(b0s[0, 0])
-    index2 = 2 if new_mode == "orthogonal" else 1
     a01 = S21[1] * np.abs(a0s[1, index2]) 
     b01 = S32[1] * np.abs(b0s[1, index2])
     return a00, b00, a01, b01
@@ -194,7 +191,7 @@ for run_i in range(num_runs):
             est2_0_times, est2_0_epsilons = _estimated_learning_times(a00, b00, s, tau)
             est2_1_times, est2_1_epsilons = _estimated_learning_times(a01, b01, s_new, tau)
             
-            est2_0_init_loss = s**2 *2 if new_mode == "orthogonal" else 2 *( s**2 - s * s_new) 
+            est2_0_init_loss = s**2 *2 if new_mode == "orthogonal" else 2 *(s**2 - s * s_new) 
             est2_1_init_loss = (s_new)**2
 
 
