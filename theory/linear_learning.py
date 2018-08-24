@@ -14,27 +14,39 @@ init_size = 1e-5
 epsilon = 0.01
 overlap = 0.75
 lr = 1e-3
-rseed = 0
-second_start_time = 3000
+subsample = 50 # how much to subsample empirical timeseries
+second_start_time = 0
+second_simple_approx = True
 #############
 tau = 1./lr 
-np.random.seed(rseed) # reproducibility
 
 def _train(sigma_31, sigma_11, W21, W32, num_epochs, track_mode_alignment=False,
            new_input_modes=None, new_output_modes=None,):
     tracks = {
 #        "W21": np.zeros([num_epochs, num_input]),
 #        "W32": np.zeros([num_epochs, num_output]),
-        "loss": np.zeros([num_epochs+1])
+        "loss": np.zeros([num_epochs+1]),
+        "S0": np.zeros([num_epochs+1]),
+        "S1": np.zeros([num_epochs+1])
         }
     if track_mode_alignment:
         tracks["alignment"] = np.zeros([num_epochs+1])
+        tracks["alignmentinitold"] = np.zeros([num_epochs+1])
+        tracks["alignmentinitnew"] = np.zeros([num_epochs+1])
+#        tracks["alignmentdeltanew"] = np.ones([num_epochs+1])
         vec0, vec1 = _get_rep_modes(W21, W32, new_input_modes,
                                     new_output_modes, orthogonal=False)
+        vec0_init = vec0
         tracks["alignment"][0] = np.dot(vec0, vec1)
+        tracks["alignmentinitold"][0] = np.dot(vec0_init, vec0)
+        tracks["alignmentinitnew"][0] = np.dot(vec0_init, vec1)
 
     l = sigma_31 - np.dot(W32, np.dot(W21, sigma_11))
     tracks["loss"][0] = np.sum(np.square(l))
+    a00, b00, a01, b01 = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes)
+    tracks["S0"][0] = a00 * b00 
+    tracks["S1"][0] = a01 * b01
+    old_vecs = []
     for epoch in range(1, num_epochs + 1):
         l = sigma_31 - np.dot(W32, np.dot(W21, sigma_11))
         W21 += lr * np.dot(W32.transpose(), l) 
@@ -42,10 +54,22 @@ def _train(sigma_31, sigma_11, W21, W32, num_epochs, track_mode_alignment=False,
 #        tracks["W21"][epoch, :] = W21
 #        tracks["W32"][epoch, :] = W32
         tracks["loss"][epoch] = np.sum(np.square(l))
-        if track_mode_alignment:
+        if track_mode_alignment and epoch % subsample == 0:
             vec0, vec1 = _get_rep_modes(W21, W32, new_input_modes,
                                         new_output_modes, orthogonal=False)
+            old_vecs.append(vec1)
+
             tracks["alignment"][epoch] = np.dot(vec0, vec1)
+            tracks["alignmentinitold"][epoch] = np.dot(vec0_init, vec0)
+            tracks["alignmentinitnew"][epoch] = np.dot(vec0_init, vec1)
+            a00, b00, a01, b01 = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes)
+            tracks["S0"][epoch] = a00*b00
+            tracks["S1"][epoch] = a01*b01
+#            if len(old_vecs) < 50:
+#                old_vec1 = vec1
+#            else:
+#                old_vec1 = old_vecs.pop(0)
+#            tracks["alignmentdeltanew"][epoch] = np.dot(old_vec1, vec1)
 
     return W21, W32, tracks
 
@@ -54,7 +78,7 @@ def _ugly_function(sc, c0, s, theta):
     return np.arctanh((c0 + s*np.tanh(theta/2.))/sc) # simpler form than the one given in Saxe et al. 
 
 def _estimated_learning_time(a0, b0, s, epsilon, tau):
-    c0 = np.abs(a0**2 - b0**2) 
+    c0 = 0.5*np.abs(a0**2 - b0**2) 
     theta0 = np.arcsinh(a0*b0/c0)
     thetaf = np.arcsinh((1-epsilon) * s/c0)
 
@@ -89,24 +113,43 @@ def _get_rep_modes(W21, W32, new_input_modes, new_output_modes, orthogonal=True)
         vec1 /= np.linalg.norm(vec1)
     return vec0, vec1
 
+#def _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes):
+#    a0s = np.dot(W21, new_input_modes.transpose())
+#    b0s = np.dot(W32.transpose(), new_output_modes.transpose()) 
+#    vec0, vec1 = _get_rep_modes(W21, W32, new_input_modes, new_output_modes, False)
+#    a00 = np.sum((a0s[:, 0]**2)*vec0)
+#    a00 = np.sign(a00) * np.sqrt(np.abs(a00))
+#    b00 = np.sum((b0s[:, 0]**2)*vec0)
+#    b00 = np.sign(b00) * np.sqrt(np.abs(b00))
+#    index2 = 2 if new_mode == "orthogonal" else 1
+#    a01 = np.sum((a0s[:, index2]**2)*vec1)
+#    a01 = np.sign(a01) * np.sqrt(np.abs(a01))
+#    b01 = np.sum((b0s[:, index2]**2)*vec1)
+#    b01 = np.sign(b01) * np.sqrt(np.abs(b01))
+#    return a00, b00, a01, b01
+
 def _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes):
-    a0s = np.dot(W21, new_input_modes.transpose())
-    b0s = np.dot(W32.transpose(), new_output_modes.transpose()) 
-    vec0, vec1 = _get_rep_modes(W21, W32, new_input_modes, new_output_modes, False)
-    a00 = np.sum((a0s[:, 0]**2)*vec0)
-    a00 = np.sign(a00) * np.sqrt(np.abs(a00))
-    b00 = np.sum((b0s[:, 0]**2)*vec0)
-    b00 = np.sign(b00) * np.sqrt(np.abs(b00))
+    U21, S21, V21 = np.linalg.svd(W21, full_matrices=False)
+    U32, S32, V32 = np.linalg.svd(W32, full_matrices=False)
+    a0s = np.dot(V21[:rank, :], new_input_modes.transpose())
+    b0s = np.dot(U32[:, :rank].transpose(), new_output_modes.transpose()) 
+    # these abs calls don't generalize to the case that the modes actually start
+    # with alignment less than 0, but save me calculating the alignment
+    # in the rep space
+    U, S, V = np.linalg.svd(np.dot(W32, W21), full_matrices=False)
+    print(S21, S32, S[:3])
+    print(a0s, b0s)
+    a00 = S21[0] * np.abs(a0s[0, 0]) 
+    b00 = S32[0] * np.abs(b0s[0, 0])
     index2 = 2 if new_mode == "orthogonal" else 1
-    a01 = np.sum((a0s[:, index2]**2)*vec1)
-    a01 = np.sign(a01) * np.sqrt(np.abs(a01))
-    b01 = np.sum((b0s[:, index2]**2)*vec1)
-    b01 = np.sign(b01) * np.sqrt(np.abs(b01))
+    a01 = S21[1] * np.abs(a0s[1, index2]) 
+    b01 = S32[1] * np.abs(b0s[1, index2])
     return a00, b00, a01, b01
 
 for run_i in range(num_runs):
-    for new_mode in ["orthogonal", "partially_aligned"]:
+    for new_mode in ["orthogonal"]:#, "partially_aligned"]:
         for s in esses:
+            np.random.seed(run_i) # reproducibility
             new_input_modes = random_orthogonal(num_input)[0:3, :]
             new_output_modes = random_orthogonal(num_output)[0:3, :]
             original_input_mode = overlap * new_input_modes[0:1, :] + np.sqrt(1-overlap**2) *  new_input_modes[1:2, :]
@@ -135,7 +178,10 @@ for run_i in range(num_runs):
             est1_init_loss = s**2 # initial outputs ~= 0 
 
             # learning from random init -- empirical
-            W21, W32, first_tracks = _train(sigma_31, sigma_11, W21, W32, num_epochs)   
+            W21, W32, first_tracks = _train(sigma_31, sigma_11, W21, W32, num_epochs,
+                                            True,
+                                            np.concatenate([original_input_mode, np.zeros_like(original_input_mode), np.zeros_like(original_input_mode)]),
+                                            np.concatenate([original_output_mode, np.zeros_like(original_output_mode), np.zeros_like(original_output_mode)]))   
 #        print(est1)
 #        est1_int = int(est1)
 #        print(np.dot(first_tracks["W21"][est1_int, :], original_mode))
@@ -144,14 +190,15 @@ for run_i in range(num_runs):
             
             # updating to new situation -- theory
             a00, b00, a01, b01 = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes)
+            print(a01, b01)
             est2_0_times, est2_0_epsilons = _estimated_learning_times(a00, b00, s, tau)
             est2_1_times, est2_1_epsilons = _estimated_learning_times(a01, b01, s_new, tau)
             
-            est2_0_init_loss = s**2 *2 *(1 - overlap**2) if new_mode == "orthogonal" else 2 *( s**2 - s * s_new) *  (1 - overlap**2)  
+            est2_0_init_loss = s**2 *2 if new_mode == "orthogonal" else 2 *( s**2 - s * s_new) 
             est2_1_init_loss = (s_new)**2
 
 
-            if second_start_time > 0:
+            if second_start_time > 0 and not second_simple_approx:
                 print("Staggering theory starts")
                 # updating to new situation --empirical  
 
@@ -163,15 +210,14 @@ for run_i in range(num_runs):
                 _, _, a01, b01 = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes)
                 est2_1_times, est2_1_epsilons = _estimated_learning_times(a01, b01, s_new, tau)
                 est2_1_times += second_start_time # offset
-                #est2_1_init_loss = (s_new - a01*b01)**2 # necessary if a01 * b01 is not << s_new
                 
                 # get rid of gap in plot
                 est2_1_times = np.concatenate([[0], est2_1_times])
-                est2_1_epsilons = np.concatenate([[np.amax(est2_1_epsilons)], est2_1_epsilons])
+                est2_1_epsilons = np.concatenate([[1.], est2_1_epsilons])
 
                 # updating to new situation --empirical  
                 W21, W32, second_tracks_2 = _train(new_sigma_31, sigma_11, W21, W32, num_epochs-second_start_time,
-                                                 True, new_input_modes, new_output_modes)
+                                                   True, new_input_modes, new_output_modes)
 
                 for key in second_tracks.keys():
                     second_tracks[key] = np.concatenate([second_tracks[key], second_tracks_2[key][1:]], 0)
@@ -179,19 +225,27 @@ for run_i in range(num_runs):
                 staggered_string = "_staggered" # appended to filenames
             else:
                 print("Not staggering theory starts")
-                # updating to new situation -- second mode theory 
-                est2_1_times, est2_1_epsilons = _estimated_learning_times(a01, b01, s_new, tau)
+
+                if second_simple_approx:
+                    # updating to new situation -- second mode theory based on orthogonal condition initial_values 
+                    est2_1_times, est2_1_epsilons = _estimated_learning_times(-4.36e-5, -3.51e-5, s_new, tau)
+
+                else:
+                    # updating to new situation -- second mode theory 
+                    est2_1_times, est2_1_epsilons = _estimated_learning_times(a01, b01, s_new, tau)
 
                 # updating to new situation --empirical  
                 W21, W32, second_tracks = _train(new_sigma_31, sigma_11, W21, W32, num_epochs,
                                                  True, new_input_modes, new_output_modes)
 
                 staggered_string = ""
+            a00, b00, a01, b01 = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes)
+            print(a01, b01)
 
 
             # plotting
-            adjusting_loss = est2_0_epsilons/np.amax(est2_0_epsilons)*est2_0_init_loss
-            new_loss = est2_1_epsilons/np.amax(est2_1_epsilons)*est2_1_init_loss
+            adjusting_loss = est2_0_epsilons*est2_0_init_loss
+            new_loss = est2_1_epsilons*est2_1_init_loss
             epochs = range(num_epochs + 1)
             approx_summed_loss = np.zeros_like(epochs, np.float32)  
             for i, epoch in enumerate(epochs):
@@ -201,14 +255,25 @@ for run_i in range(num_runs):
                 approx_summed_loss[i] += new_loss[this_index_2] 
 
             plot.figure()
-            plot.plot(epochs, first_tracks["loss"], ".")
-            plot.plot(est1_times, est1_epsilons*est1_init_loss, color='r')
+            plot.plot(epochs[::subsample], first_tracks["loss"][::subsample], ".")
+            plot.plot(est1_times, est1_epsilons*est1_init_loss)
             plot.xlabel("Epoch")
             plot.ylabel("Loss (initial learning)")
             plot.legend(["Empirical", "Theory"])
             plot.savefig("results/singular_value_%.2f_condition_%s_initial_learning%s.png" % (s, new_mode, staggered_string))
             plot.figure()
-            plot.plot(epochs, second_tracks["loss"], ".")
+
+            print(first_tracks["S0"][-1])
+            plot.figure()
+            plot.plot(epochs[::subsample], first_tracks["S0"][::subsample], ".")
+            plot.plot(est1_times, (1-est1_epsilons)*s)
+            plot.xlabel("Epoch")
+            plot.ylabel("Projection strength (initial learning)")
+            plot.legend(["Empirical", "Theory"])
+            plot.savefig("results/singular_value_%.2f_condition_%s_initial_learning_by_mode%s.png" % (s, new_mode, staggered_string))
+            plot.figure()
+
+            plot.plot(epochs[::subsample], second_tracks["loss"][::subsample], ".")
             plot.plot(est2_0_times, adjusting_loss)
             plot.plot(est2_1_times, new_loss)
             plot.plot(epochs, approx_summed_loss)
@@ -216,8 +281,28 @@ for run_i in range(num_runs):
             plot.ylabel("Loss (adjusting)")
             plot.legend(["Empirical", "Theory (adjusted mode)", "Theory (new mode)", "Theory (total)"])
             plot.savefig("results/singular_value_%.2f_condition_%s_adjusting%s.png" % (s, new_mode, staggered_string))
+
+            plot.figure()
+            plot.plot(epochs[::subsample], second_tracks["S0"][::subsample], ".")
+            plot.plot(epochs[::subsample], second_tracks["S1"][::subsample], ".")
+            plot.plot(est2_0_times, (1-est2_0_epsilons)*s)
+            plot.plot(est2_1_times, (1-est2_1_epsilons)*s_new)
+            plot.xlabel("Epoch")
+            plot.ylabel("Projection strength (adjusting)")
+            plot.legend(["Empirical (1st mode)", "Empirical (2nd mode)", "Theory (1st)", "Theory (2nd)"])
+            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_by_mode%s.png" % (s, new_mode, staggered_string))
+            plot.figure()
+
             plot.figure()
             plot.plot(epochs, second_tracks["alignment"], color='#550055')
             plot.xlabel("Epoch")
             plot.ylabel("Empirical representation alignment")
             plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_rep_alignment%s.png" % (s, new_mode, staggered_string))
+            plot.figure()
+            plot.plot(epochs[::subsample], second_tracks["alignmentinitold"][::subsample], '.')
+            plot.plot(epochs[::subsample], second_tracks["alignmentinitnew"][::subsample], '.')
+            plot.legend(["Adjusted mode", "New mode"])
+#            plot.plot(epochs, second_tracks["alignmentdeltanew"])
+            plot.xlabel("Epoch")
+            plot.ylabel("Empirical representation alignment to initial")
+            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_rep_alignment_2%s.png" % (s, new_mode, staggered_string))
