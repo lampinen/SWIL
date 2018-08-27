@@ -11,6 +11,7 @@
 \usepackage{xcolor}
 \usepackage{natbib}
 \usepackage[margin=1in]{geometry}
+\usepackage{subcaption}
 
 \newcommand{\R}{\mathbb{R}}
 
@@ -29,21 +30,45 @@ $$ab = c_0 \sinh \theta$$
 Following their derivation with this change of variables, we arrive at:
 $$\frac{\tau}{2} \frac{d\theta}{dt} = s_i - c_0 \sinh \theta$$
 (the factor of two can also be absorbed into the time constant $\tau$, we leave it separate here to avoid changing the definition of $\tau = 1/\lambda$ from the original paper). \par
-This differential equation is seperable, and so we can solve for the time needed to traverse along the hyperbola from an initial point $\theta_0$ to a final point $\theta_f$:
-%%$$t = \frac{\tau}{2\sqrt{c_0^2 + s_i^2}} \left[\ln \frac{\sqrt{c_0^2 + s_i^2} + c_0 + s_i \tanh \frac{\theta}{2}}{\sqrt{c_0^2 + s_i^2} - c_0 - s_i \tanh \frac{\theta}{2}}\right]_{\theta_0}^{\theta_f}$$
-$$t = \frac{\tau}{\sqrt{c_0^2 + s_i^2}} \left[\tanh^{-1} \left( \frac{c_0 + s_i \tanh\left( \frac{\theta}{2} \right)}{\sqrt{c_0^2+s_i^2}}\right)\right]_{\theta_0}^{\theta_f}$$ % simpler form
-This provides an exact analytic solution for the time a given degree of learning requires. Although this equation cannot be analytically inverted to find $\theta(t)$ (and thereby $a(t)$ and $b(t)$), we can parametrically sweep through the interval $(\theta_0, \theta_f)$ to plot the theoretical learning curve. \par
-%%To aid interpretation, we reverse the substitution:
-%%$$t = \frac{\tau}{2\sqrt{c_0^2 + s_i^2}} \left[\ln \frac{\sqrt{c_0^2 + s_i^2} + c_0 + s_i \frac{b}{a}}{\sqrt{c_0^2 + s_i^2} - c_0 - s_i \frac{b}{a}}\right]_{(a(0), b(0))}^{(a(t_f), b(t_f))}$$
-We note that 
+This differential equation is separable, and so we can solve for the time needed to traverse along the hyperbola from an initial point $\theta_0$ to a final point $\theta_f$:
+%%$$t = \frac{\tau}{2\sqrt{c_0^2 + s_i^2}} \left[\ln \frac{\sqrt{c_0^2 + s_i^2} + c_0 + s_i \tanh \frac{\theta}{2}}{\sqrt{c_0^2 + s_i^2} - c_0 - s_i \tanh \frac{\theta}{2}}\right]_{\theta_0}^{\theta_f}$$ % original form from Saxe et al.
+\begin{equation} \label{t_eqn} 
+t = \frac{\tau}{\sqrt{c_0^2 + s_i^2}} \left[\tanh^{-1} \left( \frac{c_0 + s_i \tanh\left( \frac{\theta}{2} \right)}{\sqrt{c_0^2+s_i^2}}\right)\right]_{\theta_0}^{\theta_f}
+\end{equation}% simpler form
+This provides an exact analytic solution for the time a given degree of learning from a given starting point requires. Although this equation cannot be analytically inverted to find $\theta(t)$ (and thereby $a(t)$ and $b(t)$), we can parametrically sweep through the interval $(\theta_0, \theta_f)$ to plot the theoretical learning curve. In Fig. \ref{init_fig} we demonstrate the match between this theoretical learning curve and the empirical results for a two layer network starting from a random initialization. \par
+We note that in the special case that \(s = 0\), for instance when a mode is removed from the data and is being unlearned, the solution is:
+\begin{equation} \label{t_eqn_s_zero} 
+t = -\frac{\tau}{2c_0} \left[\ln \tanh \left(\frac{\theta}{2}\right)\right]_{\theta_0}^{\theta_f}
+\end{equation}% simpler form
+We also note that 
 $$\frac{d(ab)}{dt} = a \frac{db}{dt} + b \frac{da}{dt} = 2 c_0 (s_i - c_0 \sinh \theta) \left( \cosh^2 \frac{\theta}{2} + \sinh^2 \frac{\theta}{2} \right) = 2 c_0 \left(s_i - ab\right) \left(a^2 + b^2 \right)$$
 That is, the change in the network's representation of a mode is proportional both to how far the projections are from the correct value (i.e. the error) and to how (absolutely) large the alignments of the input and output modes to the true mode are. The sigmoidal trajectory of mode learning noted by Saxe and colleagues can easily be interpreted from this equation -- with a small weight initialization, the second term is small, and so the change in the strength of the mode is small. As $a$ and $b$ increase, the rate of change increases, until $ab$ approaches its asymptotic value of $s_i$, at which point learning slows down as the error term shrinks. \par
+\begin{figure}
+\centering
+\includegraphics[width=0.49\textwidth]{figures/initial_learning.png}
+\caption{Match between theory (Eq. \ref{t_eqn}) and empirical initial learning of a single mode}
+\label{init_fig}
+\end{figure}
 \subsection{Learning from different starting points}
-We are now in a position to examine the question of how new knowledge gets integrated into linear networks that have already learned something. Given the above, this reduces to the question of how this new knowledge projects onto the knowledge that is already stored in the network. Qualitatively, new knowledge which provides a minor adjustment of existing knowledge will be rapidly integrated, since the projections of the new singular dimensions onto the old singular dimesnions will be strong (i.e. the second term of $d(ab)/dt$ will be large), and the first term will be proportional to the amount of adaption needed. By contrast, entirely new knowledge (i.e. modes that are orthogonal to all previously learned modes) will be integrated quite slowly. In fact, it will be learned \textbf{over the same period of time as it would have taken to learn this mode in a randomly initialized network}, assuming the modes are decoupled. {\color{red}[simulations here]} \par
-Note that it suffices for only the input weights or the output weights but not both to have a strong projection onto the new mode for the adjustment to be rapid -- slow initial learning only occurs when both projections are small, as in the case of small random initializations. \par
+We are now in a position to examine the question of how new knowledge gets integrated into linear networks that have already learned something. Given the above, this reduces to the question of how this new knowledge projects onto the knowledge that is already stored in the network. Qualitatively, new knowledge which provides a minor adjustment of existing knowledge will be rapidly integrated, since the projections of the new singular dimensions onto the old singular dimesnions will be strong (i.e. the second term of $d(ab)/dt$ will be large), and the first term will be proportional to the amount of adjustment needed. Thus \textbf{adjustments to old modes will be rapidly integrated}. By contrast, entirely new knowledge (i.e. modes that are orthogonal to all previously learned modes) will be integrated quite slowly. In fact, it will be learned \textbf{over the same period of time as it would have taken to learn this mode in a randomly initialized network}, assuming the modes are decoupled. In Fig. \ref{orth_adj_fig} we demonstrate the close match between theoretical and empirical learning for these cases. \par
+Note that it suffices for only the input weights or the output weights but not both to have a strong projection onto the new mode for the adjustment to be rapid -- slow initial learning only occurs when both projections are small, as in the case of small random initializations. This is clear from the expression for ${d(ab)}/{dt}$ given above. \par
+\begin{figure}
+\centering
+\begin{subfigure}[b]{0.49\textwidth}
+\includegraphics[width=\textwidth]{figures/orthogonal_adjusting.png}
+\caption{New mode orthogonal} \label{orth_adj_fig}
+\end{subfigure}~%
+\begin{subfigure}[b]{0.49\textwidth}
+\includegraphics[width=\textwidth]{figures/partially_aligned_adjusting.png}
+\caption{New mode partially aligned} \label{al_adj_fig}
+\end{subfigure}~%
+\caption{Match between theory (Eq. \ref{t_eqn}) and empirical adjustment of one mode while learning a new mode at the same time. In (a) the new mode is orthogonal to the (pre-adjustment) old mode. In (b), it is partially aligned to the (pre-adjustment) old mode. (The new mode theory curve in the partially aligned case is the same as in the orthogonal case, showing the slight acceleration due to the alignment.)}
+\label{adjustment_fig}
+\end{figure}
 \subsection{Learning multiple non-orthogonal new modes}
-Unfortunately, this theory only applies exactly when each mode is being adjusted (or learned from scratch) in a way that is orthogonal to all prior modes. However, we have some qualitative understanding of what happens in more complicated situations. When an adjusted mode has some projection onto two previous modes, the corresponding representational modes will \emph{compete} over the new mode. The one with the strongest projection onto it will win out, all else being equal. However, this competition delays the incorporation of the new information. It is difficult to obtain exact analyses of learning in this situation, as the modes are no longer decoupled and their evolution can be quite complex. The overall pattern, however, is that \textbf{competition between two old modes which are both partially aligned with a new mode will delay the learning of the new mode}, and this delay will be worse the more similar the strengths of the projections of the old modes onto the new mode are.\par
-Often a new mode has projections onto an old mode (in fact this is generally what the adjustment made to the old mode is fixing when a new mode is incorporated). In this case, the learning of the new mode will be slowed down by the competitive process noted above. Specifically, the new mode will initially try to align with the representation for the old mode, and it is only once the old mode has been adjusted to be orthogonal to the new mode that the new mode can be learned. From the point that the old mode is adjusted, the assumptions of the theory again hold and the learning of the new mode is well described by the theory. In other words, the main effect of some projection of a new mode onto an old mode is a \textbf{delay in the learning of the new mode while the old mode is adjusted}. {\color{red}[simulations here]}
+Unfortunately, this theory only applies exactly when each mode is being adjusted (or learned from scratch) in a way that is orthogonal to all prior modes. However, often a new mode has projections onto an old mode. In fact, the adjustment made to the old mode is often precisely to remove its initial alignment to the new mode. \par 
+Fortunately, we have some understanding of what happens in these situations. When an adjusted mode has some projection onto two previous modes, the corresponding representational modes will \emph{compete} over the adjusted mode. Similarly, when the adjusted mode and the new mode both share some projection onto the old mode, they will \emph{compete} for its representational mode. The one with the strongest singular value and strongest projection onto the representational mode will win out and be learned first, all else being equal. However, this competition changes the representational modes and delays the incorporation of the new information. It is difficult to obtain exact analyses of learning in this situation, as the modes are no longer decoupled and their evolution can be quite complex. The overall pattern, however, is that \textbf{competition with a partially-aligned new mode will delay the adjustment of the old mode}, and this delay will be worse the more similar the strengths of the projections of the old modes onto the new mode are. This can be seen in Fig. \ref{al_adj_fig} by the way the empirical learning curve lags behind the theoretical learning curve initially. \par
+However, in this case the new mode will benefit slightly from the initial strong projection. Even though the mode being adjusted will win most of the representation and prevents the new mode from using these strong weights from before, the competition will actually end in a slight compromise, wherein the new mode will steal a little bit of this original representational mode away from the adjusted mode. This will result in a stronger earlier projection for the new mode. Because of the competition from the stronger mode being adjusted, the amount of this projection will be quite small in absolute terms. However, since the delay in initial learning of a mode is due to the lack of this early projection, the main effect of some projection of a new mode onto an old mode is a \textbf{slight acceleration in the learning of the new mode}. This can be seen in Fig. \ref{al_adj_fig} by the way the theoretical learning curve leads the empirical learning curve late in learning. \par
 
 
 

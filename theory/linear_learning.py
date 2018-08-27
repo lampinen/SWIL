@@ -78,18 +78,32 @@ def _ugly_function(sc, c0, s, theta):
     return np.arctanh((c0 + s*np.tanh(theta/2.))/sc) # simpler form than the one given in Saxe et al. 
 
 def _estimated_learning_time(a0, b0, s, epsilon, tau):
-    c0 = 0.5*np.abs(a0**2 - b0**2) 
-    theta0 = np.arcsinh(a0*b0/c0)
-    thetaf = np.arcsinh((1-epsilon) * s/c0)
+    if s > 0:
+        c0 = 0.5*np.abs(a0**2 - b0**2) 
+        theta0 = np.arcsinh(a0*b0/c0)
+        thetaf = np.arcsinh((1-epsilon) * s/c0)
 
-    sc = np.sqrt((c0)**2 + (s)**2)
+        sc = np.sqrt((c0)**2 + (s)**2)
 
-    t = (tau/sc)*(_ugly_function(sc, c0, s, thetaf) - _ugly_function(sc, c0, s, theta0))
+        t = (tau/sc)*(_ugly_function(sc, c0, s, thetaf) - _ugly_function(sc, c0, s, theta0))
+    elif s == 0:
+        c0 = 0.5*np.abs(a0**2 - b0**2) 
+        theta0 = np.arcsinh(a0*b0/c0)
+        thetaf = np.arcsinh(epsilon * a0 * b0 /c0)
+        t = (tau/(2*c0))*(np.log(np.tanh(theta0/2.)) - np.log(np.tanh(thetaf/2.)))
+    else: 
+        raise ValueError("Singular values cannot be negative")
     return t
 
 def _estimated_learning_times(a0, b0, s, tau, num_points=1000):
-    start = a0*b0/s
-    end = 1.0
+    if s > 0:
+        start = a0*b0/s
+        end = 1.0
+    elif s == 0:
+        start = 1.0 
+        end = 0.
+    else: 
+        raise ValueError("Singular values cannot be negative")
     alignments = np.arange(start, end, (1./num_points) *(end-start) ) 
     epsilons = 1.-alignments
     times = np.zeros(len(alignments))
