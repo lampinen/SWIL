@@ -27,6 +27,7 @@ def _train(sigma_31, sigma_11, W21, W32, num_epochs, track_mode_alignment=False,
 #        "W32": np.zeros([num_epochs, num_output]),
         "loss": np.zeros([num_epochs+1]),
         "real_S0": np.zeros([num_epochs+1]),
+        "real_S1": np.zeros([num_epochs+1]),
         "S0": np.zeros([num_epochs+1]),
         "S1": np.zeros([num_epochs+1])
         }
@@ -50,6 +51,7 @@ def _train(sigma_31, sigma_11, W21, W32, num_epochs, track_mode_alignment=False,
     S21 = np.linalg.svd(W21, compute_uv=False)
     S32 = np.linalg.svd(W32, compute_uv=False)
     tracks["real_S0"][0] = S21[0] * S32[0] 
+    tracks["real_S1"][0] = S21[1] * S32[1] 
     old_vecs = []
     for epoch in range(1, num_epochs + 1):
         l = sigma_31 - np.dot(W32, np.dot(W21, sigma_11))
@@ -70,6 +72,7 @@ def _train(sigma_31, sigma_11, W21, W32, num_epochs, track_mode_alignment=False,
             S21 = np.linalg.svd(W21, compute_uv=False)
             S32 = np.linalg.svd(W32, compute_uv=False)
             tracks["real_S0"][epoch] = S21[0] * S32[0] 
+            tracks["real_S1"][epoch] = S21[1] * S32[1] 
             tracks["S0"][epoch] = a00*b00
             tracks["S1"][epoch] = a01*b01
 #            if len(old_vecs) < 50:
@@ -170,7 +173,7 @@ def _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_m
     return a00, b00, a01, b01
 
 for run_i in range(num_runs):
-    for new_mode in ["orthogonal"]:#, "partially_aligned"]:
+    for new_mode in ["orthogonal", "partially_aligned"]:
         for s in esses:
             np.random.seed(run_i) # reproducibility
             new_input_modes = random_orthogonal(num_input)[0:3, :]
@@ -180,7 +183,7 @@ for run_i in range(num_runs):
             if new_mode == "orthogonal":
                  S_new =  np.diag([s, 0, s_new])
             else:
-                 S_new =  np.diag([0, s_new, 0])
+                 S_new =  np.diag([s, s_new, 0])
 
             input_data = np.eye(num_input) # random_orthogonal(num_input)
 
@@ -281,24 +284,26 @@ for run_i in range(num_runs):
             new_loss = est2_1_epsilons**2*est2_1_init_loss
             epochs = range(num_epochs + 1)
             approx_summed_loss = np.zeros_like(epochs, np.float32)  
-            blah = np.zeros_like(epochs, np.float32)  
-            blah2 = np.zeros_like(epochs, np.float32)  
-            blah3 = np.zeros_like(epochs, np.float32)  
-            blah4 = np.zeros_like(epochs, np.float32)  
+            adjusting_alignment = np.zeros_like(epochs, np.float32)  
+#            blah = np.zeros_like(epochs, np.float32)  
+#            blah2 = np.zeros_like(epochs, np.float32)  
+#            blah3 = np.zeros_like(epochs, np.float32)  
+#            blah4 = np.zeros_like(epochs, np.float32)  
             for i, epoch in enumerate(epochs):
                 this_index = np.argmin(np.abs(est2_0_times- epoch)) 
                 approx_summed_loss[i] = adjusting_loss[this_index] 
                 this_index_2 = np.argmin(np.abs(est2_1_times- epoch)) 
                 approx_summed_loss[i] += new_loss[this_index_2] 
 #                blah[i] = (1-est2_0_epsilons[this_index])*s 
-                this_index_3 = np.argmin(np.abs(est2_0b_times- epoch)) 
+#                this_index_3 = np.argmin(np.abs(est2_0b_times- epoch)) 
 #                blah[i] += est2_0b_epsilons[this_index_3]*s*(1-overlap**2) 
-                q = (1-est2_0_epsilons[this_index])
-                blah[i] = s**2 + second_tracks["real_S0"][i]**2 - 2*s * second_tracks["real_S0"][i] * q
-                blah3[i] = blah[i] - est2_0_epsilons[this_index] * est2_0_init_loss
-                blah4[i] = (2*q - 1) * s 
-                blah2[i] = (1-est2_0_epsilons[this_index])*second_tracks["real_S0"][i]
+#                q = (1-est2_0_epsilons[this_index])
+#                blah[i] = s**2 + second_tracks["real_S0"][i]**2 - 2*s * second_tracks["real_S0"][i] * q
+#                blah3[i] = blah[i] - est2_0_epsilons[this_index] * est2_0_init_loss
+#                blah4[i] = (2*q - 1) * s 
+#                blah2[i] = (1-est2_0_epsilons[this_index])*second_tracks["real_S0"][i]
 
+            # initial learning: loss
             plot.figure()
             plot.plot(epochs[::subsample], first_tracks["loss"][::subsample], ".")
             plot.plot(est1_times, est1_epsilons**2*est1_init_loss)
@@ -308,43 +313,68 @@ for run_i in range(num_runs):
             plot.savefig("results/singular_value_%.2f_condition_%s_initial_learning%s.png" % (s, new_mode, staggered_string))
             plot.figure()
 
+            # initial learning: projections
             plot.figure()
             plot.plot(epochs[::subsample], first_tracks["S0"][::subsample], ".")
-            plot.plot(est1_times, (1-est1_epsilons)*s)
+            plot.plot(est1_times, (1-est1_epsilons) * s)
             plot.xlabel("Epoch")
             plot.ylabel("Projection strength (initial learning)")
             plot.legend(["Empirical", "Theory"])
             plot.savefig("results/singular_value_%.2f_condition_%s_initial_learning_by_mode%s.png" % (s, new_mode, staggered_string))
             plot.figure()
 
+            # adjusting : loss
             plot.plot(epochs[::subsample], second_tracks["loss"][::subsample], ".")
             plot.plot(est2_0_times, adjusting_loss)
             plot.plot(est2_1_times, new_loss)
             plot.plot(epochs, approx_summed_loss)
-            plot.plot(epochs[::subsample], blah[::subsample])
-            plot.plot(epochs[::subsample], blah3[::subsample])
+#            plot.plot(epochs[::subsample], blah[::subsample])
+#            plot.plot(epochs[::subsample], blah3[::subsample])
             plot.xlabel("Epoch")
             plot.ylabel("Loss (adjusting)")
-            plot.xlim(-100, 500)
+#            plot.xlim(-100, 500)
             plot.legend(["Empirical", "Theory (adjusted mode)", "Theory (new mode)", "Theory (total)"])
             plot.savefig("results/singular_value_%.2f_condition_%s_adjusting%s.png" % (s, new_mode, staggered_string))
 
+            # adjusting: projections  
+            # note in paper that first mode projection is scaled by s/s_hat, in order to cancel out the change in s_hat
             plot.figure()
             plot.plot(epochs[::subsample], second_tracks["S0"][::subsample], ".")
+            plot.plot(epochs[::subsample], second_tracks["S0"][::subsample] * s / second_tracks["real_S0"][::subsample], ".")
             plot.plot(epochs[::subsample], second_tracks["S1"][::subsample], ".")
-            plot.plot(est2_0_times, (1-(est2_0_epsilons))*s)
-            plot.plot(est2_0b_times, est2_0b_epsilons*s*(1-overlap**2))
+            plot.plot(est2_0_times, (1-est2_0_epsilons)*s)
+#            plot.plot(est2_0b_times, est2_0b_epsilons*s*(1-overlap**2))
 #            plot.plot(epochs[::subsample], blah[::subsample])
-            plot.plot(epochs[::subsample], blah2[::subsample])
-            plot.plot(epochs[::subsample], second_tracks["real_S0"][::subsample])
-            plot.plot(epochs[::subsample], blah4[::subsample])
-            plot.plot(est2_1_times, (1-est2_1_epsilons)*s_new)
+#            plot.plot(epochs[::subsample], blah2[::subsample])
+#            plot.plot(epochs[::subsample], second_tracks["real_S0"][::subsample])
+#            lot.plot(epochs[::subsample], blah4[::subsample])
+            plot.plot(est2_1_times, (1-est2_1_epsilons) * s_new)
             #plot.xlim(-500, 10000)
-            plot.xlim(-100, 500)
+#            plot.xlim(-100, 500)
             plot.xlabel("Epoch")
             plot.ylabel("Projection strength (adjusting)")
-            #plot.legend(["Empirical (1st mode)", "Empirical (2nd mode)", "Theory (1st)", "Theory (1st unlearing)", "Theory (1st combined)", "Theory (1st w/ empirical S)", "empirical S", "Theory (2nd)"], loc=1)
+            plot.legend(["Empirical (1st mode, unscaled)", "Empirical (1st mode, scaled)", "Empirical (2nd mode)", "Theory (1st)", "Theory (2nd)"], loc=1)
             plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_by_mode%s.png" % (s, new_mode, staggered_string))
+            plot.figure()
+
+            # discrepancy without scaling
+            plot.figure()
+            plot.plot(epochs[::subsample], second_tracks["S0"][::subsample], ".")
+            plot.plot(epochs[::subsample], second_tracks["S0"][::subsample] * s / second_tracks["real_S0"][::subsample], ".")
+            plot.plot(epochs[::subsample], second_tracks["real_S0"][::subsample]/s, ".")
+            plot.plot(est2_0_times, (1-est2_0_epsilons)*s)
+#            plot.plot(est2_0b_times, est2_0b_epsilons*s*(1-overlap**2))
+#            plot.plot(epochs[::subsample], blah[::subsample])
+#            plot.plot(epochs[::subsample], blah2[::subsample])
+#            plot.plot(epochs[::subsample], second_tracks["real_S0"][::subsample])
+#            lot.plot(epochs[::subsample], blah4[::subsample])
+            #plot.xlim(-500, 10000)
+            plot.xlim(-100, 2000)
+            plot.ylim(-0.2, 5.2)
+            plot.xlabel("Epoch")
+            plot.ylabel("Projection strength (adjusting)")
+            plot.legend(["Empirical (1st mode, unscaled)", "Empirical (1st mode, scaled)", "s ratio", "Theory (1st)"], loc=5)
+            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_first_mode_discrepancy%s.png" % (s, new_mode, staggered_string))
             plot.figure()
 
             plot.figure()

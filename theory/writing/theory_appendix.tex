@@ -14,10 +14,13 @@
 \usepackage{subcaption}
 
 \newcommand{\R}{\mathbb{R}}
+\newcommand{\bb}[1]{{\bf\overline{#1}}}
+\newcommand{\bh}[1]{{\bf\hat{#1}}}
 
 \begin{document}
 \section{Theoretical appendix}
 \subsection{Preliminaries}
+\subsubsection{Mode learning dynamics}
 \citet{Saxe2014} provided (in part A of their supplementary material) solutions to learning dynamics in linear networks from arbitrary initial mode strengths, with some assumptions about the initialization and the structure of the data. We note a minor correction to these solutions and build off them here. \par
 Consider the input-output correlation matrix $\Sigma_{31} = \sum_{i=1}^P y_ix_i^t$ where $\{(x_1, y_), ..., (x_P, y_P)\}$ are the (input, target) pairs the network is trained on. Saxe and colleagues considered its singular value decomposition:
 $$\Sigma_{31} = \sum_{\alpha=1}^{k} u_\alpha s_\alpha v_\alpha^T$$
@@ -45,32 +48,64 @@ $$\frac{d(ab)}{dt} = a \frac{db}{dt} + b \frac{da}{dt} = 2 c_0 (s_i - c_0 \sinh 
 That is, the change in the network's representation of a mode is proportional both to how far the projections are from the correct value (i.e. the error) and to how (absolutely) large the alignments of the input and output modes to the true mode are. The sigmoidal trajectory of mode learning noted by Saxe and colleagues can easily be interpreted from this equation -- with a small weight initialization, the second term is small, and so the change in the strength of the mode is small. As $a$ and $b$ increase, the rate of change increases, until $ab$ approaches its asymptotic value of $s_i$, at which point learning slows down as the error term shrinks. \par
 \begin{figure}
 \centering
-\includegraphics[width=0.49\textwidth]{figures/initial_learning.png}
-\caption{Match between theory (Eq. \ref{t_eqn}) and empirical initial learning of a single mode}
+\begin{subfigure}[b]{0.49\textwidth}
+\includegraphics[width=\textwidth]{figures/initial_learning.png}
+\caption{Loss} 
+\end{subfigure}~%
+\begin{subfigure}[b]{0.49\textwidth}
+\includegraphics[width=\textwidth]{figures/initial_learning_by_mode.png}
+\caption{Mode alignment} 
+\end{subfigure}
+\caption{Match between theory (Eq. \ref{t_eqn}) and empirical initial learning of a single mode. (a) shows the loss (squared error) of the network's outputs, and (b) shows the alignment (i.e. the quantity $ab$).}
 \label{init_fig}
 \end{figure}
+Note that the theoretical results assume that the network's input and output modes are perfectly aligned with the data modes, and all that must be learned is the correct singular value. This assumption will not hold in our simulations because modes will be adjusted, but nevertheless we find empirically that the theory provides quite accurate approximations even in this more general setting.
+\subsubsection{Losses}
+The loss of the network at a given point in learning is given by a relatively simple formula. For singular dimension $i$ in the data let ${\bf v}_i^T$ be the input mode, $s_i$ the singular value, and ${\bf u}_i$ the output mode. Similarly, for each mode $j$ in the SVD of the outputs produced by the network, let let $\bh{v}_j^T$ be the input mode, $\hat{s}_j$ the singular value, and $\bh{u}_j$ the output mode
+$$\text{Loss} = \sum_{i} s_{i}^2 +  \sum_{j} \hat{s}_{j}^2 - 2 \sum_{i}\sum_{j}  s_{i} \hat{s}_{j} \left({\bf u}^{i} \cdot \bf{\hat u}^{j} \right) \left({\bf v}^{i} \cdot \bf{\hat v}^{j} \right)$$
+For a derivation of this formula see e.g. \citet{Lampinen2018}. \par %% The analytic theory paper with Surya 
+Although the formula above is more general, it is useful to consider the special case that each of the network's non-trivial modes has a non-zero projection onto only one of the data modes. This does not require that the network modes be perfectly aligned with the data modes, merely that the network modes be effectively ``paired up'' with the data modes so each only projects onto a single one. In this case, the loss per component can be calculated independently for each mode $i$:
+$$\text{Loss}_i = s_i^2 +  \hat{s}_{i}^2 - 2 s_{i} \hat{s}_{i} \left({\bf u}^{i} \cdot \bf{\hat u}^{i} \right) \left({\bf v}^{i} \cdot \bf{\hat v}^{i} \right) = s_i^2 +  \hat{s}_{i}^2 - 2 s_{i} a_i b_i$$
+where $a_i$ and $b_i$ are, respectively, the input and output mode projections as in the previous section.
 \subsection{Learning from different starting points}
-We are now in a position to examine the question of how new knowledge gets integrated into linear networks that have already learned something. Given the above, this reduces to the question of how this new knowledge projects onto the knowledge that is already stored in the network. Qualitatively, new knowledge which provides a minor adjustment of existing knowledge will be rapidly integrated, since the projections of the new singular dimensions onto the old singular dimesnions will be strong (i.e. the second term of $d(ab)/dt$ will be large), and the first term will be proportional to the amount of adjustment needed. Thus \textbf{adjustments to old modes will be rapidly integrated}. By contrast, entirely new knowledge (i.e. modes that are orthogonal to all previously learned modes) will be integrated quite slowly. In fact, it will be learned \textbf{over the same period of time as it would have taken to learn this mode in a randomly initialized network}, assuming the modes are decoupled. In Fig. \ref{orth_adj_fig} we demonstrate the close match between theoretical and empirical learning for these cases. \par
+We are now in a position to examine the question of how new knowledge gets integrated into linear networks that have already learned something. Given the above, this reduces to the question of how this new knowledge projects onto the knowledge that is already stored in the network. Qualitatively, new knowledge which provides a minor adjustment of existing knowledge will be rapidly integrated, since the projections of the new singular dimensions onto the old singular dimensions will be strong (i.e. the second term of $d(ab)/dt$ will be large), and the first term will be proportional to the amount of adjustment needed. Thus \textbf{adjustments to old modes will be rapidly integrated}, so long as they are not large enough to make the mode nearly orthogonal to the pre-adjustment mode. By contrast, entirely new knowledge (i.e. modes that are orthogonal to all previously learned modes) will be integrated quite slowly. In fact, it will be learned \textbf{over the same period of time as it would have taken to learn this mode in a randomly initialized network}, assuming the modes are decoupled. \par
+In Fig. \ref{orth_adj_fig} we demonstrate a fairly close match between theoretical and empirical learning for these cases. In particular, the theoretical and empirical loss are very closely matched. However, the alignment of the mode being adjusted is slightly slower than the theory predicts. In fact, this is because there is a transient decrease in the singular value of this dimension while the network adjusts it, which is not predicted by the theory (since the theory assumed that the modes would be aligned, and only the singular values would differ). However, if we scale the alignment by the ratio $s/\hat{s}$, i.e. the ratio of the singular dimension strength in the data to the current network singular dimension strength, the empirical curve matches very closely here as well, see Fig. \ref{orth_adj_fig}(b-c).\par 
 Note that it suffices for only the input weights or the output weights but not both to have a strong projection onto the new mode for the adjustment to be rapid -- slow initial learning only occurs when both projections are small, as in the case of small random initializations. This is clear from the expression for ${d(ab)}/{dt}$ given above. \par
 \begin{figure}
 \centering
 \begin{subfigure}[b]{0.49\textwidth}
 \includegraphics[width=\textwidth]{figures/orthogonal_adjusting.png}
-\caption{New mode orthogonal} \label{orth_adj_fig}
+\caption{Loss} 
 \end{subfigure}~%
 \begin{subfigure}[b]{0.49\textwidth}
-\includegraphics[width=\textwidth]{figures/partially_aligned_adjusting.png}
-\caption{New mode partially aligned} \label{al_adj_fig}
-\end{subfigure}~%
-\caption{Match between theory (Eq. \ref{t_eqn}) and empirical adjustment of one mode while learning a new mode at the same time. In (a) the new mode is orthogonal to the (pre-adjustment) old mode. In (b), it is partially aligned to the (pre-adjustment) old mode. (The new mode theory curve in the partially aligned case is the same as in the orthogonal case, showing the slight acceleration due to the alignment.)}
-\label{adjustment_fig}
+\includegraphics[width=\textwidth]{figures/orthogonal_adjusting_by_mode.png}
+\caption{Mode alignments} 
+\end{subfigure}\\
+\begin{subfigure}[b]{0.49\textwidth}
+\includegraphics[width=\textwidth]{figures/orthogonal_adjusting_first_mode_discrepancy.png}
+\caption{Adjusting mode alignment detail} 
+\end{subfigure}
+\caption{Match between theory (Eq. \ref{t_eqn}) and empirical adjustment of one mode while simultaneously learning an orthogonal new mode. (a) show the theoretical loss due to each component as well as the total, showing an extremely close match between theoretical and empirical total loss. (b) shows the alignments of the modes, showing a slight discrepancy in the alignment of the first mode, which is due to a transient decrease in the singular value. (c) shows this discrepancy in the alignment in more detail, including the ratio of the empirically observed $\hat{s}$ to $s$, and that when the alignment is scaled by the inverse of this ratio it matches the theory exactly.}
+\label{orth_adj_fig}
 \end{figure}
 \subsection{Learning multiple non-orthogonal new modes}
-Unfortunately, this theory only applies exactly when each mode is being adjusted (or learned from scratch) in a way that is orthogonal to all prior modes. However, often a new mode has projections onto an old mode. In fact, the adjustment made to the old mode is often precisely to remove its initial alignment to the new mode. \par 
-Fortunately, we have some understanding of what happens in these situations. When an adjusted mode has some projection onto two previous modes, the corresponding representational modes will \emph{compete} over the adjusted mode. Similarly, when the adjusted mode and the new mode both share some projection onto the old mode, they will \emph{compete} for its representational mode. The one with the strongest singular value and strongest projection onto the representational mode will win out and be learned first, all else being equal. However, this competition changes the representational modes and delays the incorporation of the new information. It is difficult to obtain exact analyses of learning in this situation, as the modes are no longer decoupled and their evolution can be quite complex. The overall pattern, however, is that \textbf{competition with a partially-aligned new mode will delay the adjustment of the old mode}, and this delay will be worse the more similar the strengths of the projections of the old modes onto the new mode are. This can be seen in Fig. \ref{al_adj_fig} by the way the empirical learning curve lags behind the theoretical learning curve initially. \par
-However, in this case the new mode will benefit slightly from the initial strong projection. Even though the mode being adjusted will win most of the representation and prevents the new mode from using these strong weights from before, the competition will actually end in a slight compromise, wherein the new mode will steal a little bit of this original representational mode away from the adjusted mode. This will result in a stronger earlier projection for the new mode. Because of the competition from the stronger mode being adjusted, the amount of this projection will be quite small in absolute terms. However, since the delay in initial learning of a mode is due to the lack of this early projection, the main effect of some projection of a new mode onto an old mode is a \textbf{slight acceleration in the learning of the new mode}. This can be seen in Fig. \ref{al_adj_fig} by the way the theoretical learning curve leads the empirical learning curve late in learning. \par
+This theory assumes each mode is being adjusted (or learned from scratch) in a way that is orthogonal to all prior modes. However, often a new mode has projections onto an old mode. In fact, the adjustment made to the old mode is often precisely to remove its initial alignment to the new mode. \par 
+Fortunately, we have some understanding of what happens in these situations. When an adjusted mode has some projection onto two previous modes, the corresponding representational modes will \emph{compete} over the adjusted mode. Similarly, when the adjusted mode and the new mode both share some projection onto the old mode, they will \emph{compete} for its representational mode. The one with the strongest singular value and strongest projection onto the representational mode will win out and be learned first, all else being equal. However, this competition changes the representational modes and delays the incorporation of the new information. It is difficult to obtain exact analyses of learning in this situation, as the modes are no longer decoupled and their evolution can be quite complex. The overall pattern, however, is that \textbf{competition with a partially-aligned new mode will delay the adjustment of the old mode}, and this delay will be worse the more similar the strengths of the projections of the old modes onto the new mode are. This can be seen in Fig. \ref{al_adj_fig} by the way the empirical learning curves lag behind the theoretical curves initially. \par
+However, in this case the new mode will benefit slightly from the initial strong projection. Even though the mode being adjusted will win most of the representation and prevents the new mode from using these strong weights from before, the competition will actually end in a slight compromise, wherein the new mode will steal a little bit of this original representational mode away from the adjusted mode. This will result in a stronger earlier projection for the new mode. Because of the competition from the stronger mode being adjusted, the amount of this projection will be quite small in absolute terms. However, since the delay in initial learning of a mode is due to the lack of this early projection, the main effect of some projection of a new mode onto an old mode is a \textbf{slight acceleration in the learning of the new mode}. This can be seen in Fig. \ref{al_adj_fig} by the way the empirical learning curves lead the theoretical curves late in learning. \par
 
-
+\begin{figure}
+\centering
+\begin{subfigure}[b]{0.49\textwidth}
+\includegraphics[width=\textwidth]{figures/partially_aligned_adjusting.png}
+\caption{Loss}
+\end{subfigure}~%
+\begin{subfigure}[b]{0.49\textwidth}
+\includegraphics[width=\textwidth]{figures/partially_aligned_adjusting_by_mode.png}
+\caption{Loss}
+\end{subfigure}~%
+\caption{Match between theory (Eq. \ref{t_eqn}) and empirical adjustment of one mode while simultaneously learning a new mode which is partially aligned with the old mode. The theory curves in the partially aligned case are the same as in the orthogonal case, showing the slight slow down in adjusting the old mode and speed up in learning the new mode.}
+\label{al_adj_fig}
+\end{figure}
 
 
 \end{document}
