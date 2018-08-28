@@ -12,7 +12,7 @@ esses = [5]#[10, 5, 3]
 s_new = 2
 init_size = 1e-5
 epsilon = 0.01
-overlap = 0.75
+overlap = 0.85
 lr = 1e-3
 subsample = 50 # how much to subsample empirical timeseries
 second_start_time = 0
@@ -26,6 +26,7 @@ def _train(sigma_31, sigma_11, W21, W32, num_epochs, track_mode_alignment=False,
 #        "W21": np.zeros([num_epochs, num_input]),
 #        "W32": np.zeros([num_epochs, num_output]),
         "loss": np.zeros([num_epochs+1]),
+        "real_S0": np.zeros([num_epochs+1]),
         "S0": np.zeros([num_epochs+1]),
         "S1": np.zeros([num_epochs+1])
         }
@@ -46,6 +47,9 @@ def _train(sigma_31, sigma_11, W21, W32, num_epochs, track_mode_alignment=False,
     a00, b00, a01, b01 = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes)
     tracks["S0"][0] = a00 * b00 
     tracks["S1"][0] = a01 * b01
+    S21 = np.linalg.svd(W21, compute_uv=False)
+    S32 = np.linalg.svd(W32, compute_uv=False)
+    tracks["real_S0"][0] = S21[0] * S32[0] 
     old_vecs = []
     for epoch in range(1, num_epochs + 1):
         l = sigma_31 - np.dot(W32, np.dot(W21, sigma_11))
@@ -63,6 +67,9 @@ def _train(sigma_31, sigma_11, W21, W32, num_epochs, track_mode_alignment=False,
             tracks["alignmentinitold"][epoch] = np.dot(vec0_init, vec0)
             tracks["alignmentinitnew"][epoch] = np.dot(vec0_init, vec1)
             a00, b00, a01, b01 = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes)
+            S21 = np.linalg.svd(W21, compute_uv=False)
+            S32 = np.linalg.svd(W32, compute_uv=False)
+            tracks["real_S0"][epoch] = S21[0] * S32[0] 
             tracks["S0"][epoch] = a00*b00
             tracks["S1"][epoch] = a01*b01
 #            if len(old_vecs) < 50:
@@ -106,9 +113,13 @@ def _estimated_learning_times(a0, b0, s, tau, num_points=1000):
         raise ValueError("Singular values cannot be negative")
     alignments = np.arange(start, end, (1./num_points) *(end-start) ) 
     epsilons = 1.-alignments
-    times = np.zeros(len(alignments))
+    times = np.zeros(num_points)
     for i in range(1, len(alignments)):
         times[i] = _estimated_learning_time(a0, b0, s, epsilons[i], tau)
+
+    if s == 0:
+        times = times[1:]
+        epsilons = epsilons[1:]
     
     return times, epsilons
 
@@ -155,6 +166,7 @@ def _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_m
     b00 = S32[0] * np.abs(b0s[0, 0])
     a01 = S21[1] * np.abs(a0s[1, index2]) 
     b01 = S32[1] * np.abs(b0s[1, index2])
+
     return a00, b00, a01, b01
 
 for run_i in range(num_runs):
@@ -168,7 +180,7 @@ for run_i in range(num_runs):
             if new_mode == "orthogonal":
                  S_new =  np.diag([s, 0, s_new])
             else:
-                 S_new =  np.diag([s, s_new, 0])
+                 S_new =  np.diag([0, s_new, 0])
 
             input_data = np.eye(num_input) # random_orthogonal(num_input)
 
@@ -199,10 +211,21 @@ for run_i in range(num_runs):
 #        print(first_tracks["W32"][est1_int, :])
 #        print(s * (1-epsilon))
             
+        
             # updating to new situation -- theory
-            a00, b00, a01, b01 = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes)
-            print(a01, b01)
+            print("debug")
+            bbb1 = new_input_modes.copy()
+            bbb1[0, :] = original_input_mode
+            bbb2 = new_output_modes.copy()
+            bbb2[0, :] = original_output_mode
+            a0_orig, b0_orig, _, _ = _coefficients_from_weights_and_modes(W21, W32, bbb1, bbb2)
+            print(a0_orig, b0_orig)
+            a00, b00, a01, b01, a0b, b0b = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes, True)
+            print(a00, b00, a01, b01, a0b, b0b)
+            print(np.sqrt(a0_orig**2-a00**2), np.sqrt(a0_orig**2-b00**2))
             est2_0_times, est2_0_epsilons = _estimated_learning_times(a00, b00, s, tau)
+            est2_0b_times, est2_0b_epsilons = _estimated_learning_times(np.sqrt(a0_orig**2-a00**2), np.sqrt(a0_orig**2-b00**2), 0, tau)
+            est2_0b_times, est2_0b_epsilons = _estimated_learning_times(a0_orig, b0_orig, 0, tau)
             est2_1_times, est2_1_epsilons = _estimated_learning_times(a01, b01, s_new, tau)
             
             est2_0_init_loss = s**2 *2 if new_mode == "orthogonal" else 2 *(s**2 - s * s_new) 
@@ -251,30 +274,36 @@ for run_i in range(num_runs):
 
                 staggered_string = ""
             a00, b00, a01, b01 = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes)
-            print(a01, b01)
 
 
             # plotting
-            adjusting_loss = est2_0_epsilons*est2_0_init_loss
-            new_loss = est2_1_epsilons*est2_1_init_loss
+            print(est2_0_epsilons[0])
+            print(second_tracks["loss"][0]-4)
+            adjusting_loss = est2_0_epsilons*est2_0_init_loss 
+            new_loss = est2_1_epsilons**2*est2_1_init_loss
             epochs = range(num_epochs + 1)
             approx_summed_loss = np.zeros_like(epochs, np.float32)  
+            blah = np.zeros_like(epochs, np.float32)  
+            blah2 = np.zeros_like(epochs, np.float32)  
             for i, epoch in enumerate(epochs):
                 this_index = np.argmin(np.abs(est2_0_times- epoch)) 
                 approx_summed_loss[i] = adjusting_loss[this_index] 
                 this_index_2 = np.argmin(np.abs(est2_1_times- epoch)) 
                 approx_summed_loss[i] += new_loss[this_index_2] 
+                blah[i] = (1-est2_0_epsilons[this_index])*s 
+                this_index_3 = np.argmin(np.abs(est2_0b_times- epoch)) 
+                blah[i] += est2_0b_epsilons[this_index_3]*s*(1-overlap**2) 
+                blah2[i] = (1-est2_0_epsilons[this_index])*second_tracks["real_S0"][i]
 
             plot.figure()
             plot.plot(epochs[::subsample], first_tracks["loss"][::subsample], ".")
-            plot.plot(est1_times, est1_epsilons*est1_init_loss)
+            plot.plot(est1_times, est1_epsilons**2*est1_init_loss)
             plot.xlabel("Epoch")
             plot.ylabel("Loss (initial learning)")
             plot.legend(["Empirical", "Theory"])
             plot.savefig("results/singular_value_%.2f_condition_%s_initial_learning%s.png" % (s, new_mode, staggered_string))
             plot.figure()
 
-            print(first_tracks["S0"][-1])
             plot.figure()
             plot.plot(epochs[::subsample], first_tracks["S0"][::subsample], ".")
             plot.plot(est1_times, (1-est1_epsilons)*s)
@@ -296,11 +325,16 @@ for run_i in range(num_runs):
             plot.figure()
             plot.plot(epochs[::subsample], second_tracks["S0"][::subsample], ".")
             plot.plot(epochs[::subsample], second_tracks["S1"][::subsample], ".")
-            plot.plot(est2_0_times, (1-est2_0_epsilons)*s)
+            plot.plot(est2_0_times, (1-(est2_0_epsilons))*s)
+            plot.plot(est2_0b_times, est2_0b_epsilons*s*(1-overlap**2))
+            plot.plot(epochs, blah)
+            plot.plot(epochs[::subsample], blah2[::subsample])
+            plot.plot(epochs[::subsample], second_tracks["real_S0"][::subsample])
             plot.plot(est2_1_times, (1-est2_1_epsilons)*s_new)
+            plot.xlim(-500, 10000)
             plot.xlabel("Epoch")
             plot.ylabel("Projection strength (adjusting)")
-            plot.legend(["Empirical (1st mode)", "Empirical (2nd mode)", "Theory (1st)", "Theory (2nd)"])
+            plot.legend(["Empirical (1st mode)", "Empirical (2nd mode)", "Theory (1st)", "Theory (1st unlearing)", "Theory (1st combined)", "Theory (1st w/ empirical S)", "empirical S", "Theory (2nd)"], loc=1)
             plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_by_mode%s.png" % (s, new_mode, staggered_string))
             plot.figure()
 
