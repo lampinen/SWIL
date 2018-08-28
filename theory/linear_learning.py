@@ -223,7 +223,7 @@ for run_i in range(num_runs):
             a00, b00, a01, b01 = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes)
             est2_0_times, est2_0_epsilons = _estimated_learning_times(a00, b00, s, tau)
             est2_0b_times, est2_0b_epsilons = _estimated_learning_times(np.sqrt(a0_orig**2-a00**2), np.sqrt(a0_orig**2-b00**2), 0, tau)
-            est2_0b_times, est2_0b_epsilons = _estimated_learning_times(a0_orig, b0_orig, 0, tau)
+
             est2_1_times, est2_1_epsilons = _estimated_learning_times(a01, b01, s_new, tau)
             
             est2_0_init_loss = s**2 *2 if new_mode == "orthogonal" else 2 *(s**2 - s * s_new) 
@@ -283,14 +283,20 @@ for run_i in range(num_runs):
             approx_summed_loss = np.zeros_like(epochs, np.float32)  
             blah = np.zeros_like(epochs, np.float32)  
             blah2 = np.zeros_like(epochs, np.float32)  
+            blah3 = np.zeros_like(epochs, np.float32)  
+            blah4 = np.zeros_like(epochs, np.float32)  
             for i, epoch in enumerate(epochs):
                 this_index = np.argmin(np.abs(est2_0_times- epoch)) 
                 approx_summed_loss[i] = adjusting_loss[this_index] 
                 this_index_2 = np.argmin(np.abs(est2_1_times- epoch)) 
                 approx_summed_loss[i] += new_loss[this_index_2] 
-                blah[i] = (1-est2_0_epsilons[this_index])*s 
+#                blah[i] = (1-est2_0_epsilons[this_index])*s 
                 this_index_3 = np.argmin(np.abs(est2_0b_times- epoch)) 
-                blah[i] += est2_0b_epsilons[this_index_3]*s*(1-overlap**2) 
+#                blah[i] += est2_0b_epsilons[this_index_3]*s*(1-overlap**2) 
+                q = (1-est2_0_epsilons[this_index])
+                blah[i] = s**2 + second_tracks["real_S0"][i]**2 - 2*s * second_tracks["real_S0"][i] * q
+                blah3[i] = blah[i] - est2_0_epsilons[this_index] * est2_0_init_loss
+                blah4[i] = (2*q - 1) * s 
                 blah2[i] = (1-est2_0_epsilons[this_index])*second_tracks["real_S0"][i]
 
             plot.figure()
@@ -315,8 +321,11 @@ for run_i in range(num_runs):
             plot.plot(est2_0_times, adjusting_loss)
             plot.plot(est2_1_times, new_loss)
             plot.plot(epochs, approx_summed_loss)
+            plot.plot(epochs[::subsample], blah[::subsample])
+            plot.plot(epochs[::subsample], blah3[::subsample])
             plot.xlabel("Epoch")
             plot.ylabel("Loss (adjusting)")
+            plot.xlim(-100, 500)
             plot.legend(["Empirical", "Theory (adjusted mode)", "Theory (new mode)", "Theory (total)"])
             plot.savefig("results/singular_value_%.2f_condition_%s_adjusting%s.png" % (s, new_mode, staggered_string))
 
@@ -325,14 +334,16 @@ for run_i in range(num_runs):
             plot.plot(epochs[::subsample], second_tracks["S1"][::subsample], ".")
             plot.plot(est2_0_times, (1-(est2_0_epsilons))*s)
             plot.plot(est2_0b_times, est2_0b_epsilons*s*(1-overlap**2))
-            plot.plot(epochs, blah)
+#            plot.plot(epochs[::subsample], blah[::subsample])
             plot.plot(epochs[::subsample], blah2[::subsample])
             plot.plot(epochs[::subsample], second_tracks["real_S0"][::subsample])
+            plot.plot(epochs[::subsample], blah4[::subsample])
             plot.plot(est2_1_times, (1-est2_1_epsilons)*s_new)
-            plot.xlim(-500, 10000)
+            #plot.xlim(-500, 10000)
+            plot.xlim(-100, 500)
             plot.xlabel("Epoch")
             plot.ylabel("Projection strength (adjusting)")
-            plot.legend(["Empirical (1st mode)", "Empirical (2nd mode)", "Theory (1st)", "Theory (1st unlearing)", "Theory (1st combined)", "Theory (1st w/ empirical S)", "empirical S", "Theory (2nd)"], loc=1)
+            #plot.legend(["Empirical (1st mode)", "Empirical (2nd mode)", "Theory (1st)", "Theory (1st unlearing)", "Theory (1st combined)", "Theory (1st w/ empirical S)", "empirical S", "Theory (2nd)"], loc=1)
             plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_by_mode%s.png" % (s, new_mode, staggered_string))
             plot.figure()
 
