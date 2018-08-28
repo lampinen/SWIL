@@ -220,9 +220,7 @@ for run_i in range(num_runs):
             bbb2[0, :] = original_output_mode
             a0_orig, b0_orig, _, _ = _coefficients_from_weights_and_modes(W21, W32, bbb1, bbb2)
             print(a0_orig, b0_orig)
-            a00, b00, a01, b01, a0b, b0b = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes, True)
-            print(a00, b00, a01, b01, a0b, b0b)
-            print(np.sqrt(a0_orig**2-a00**2), np.sqrt(a0_orig**2-b00**2))
+            a00, b00, a01, b01 = _coefficients_from_weights_and_modes(W21, W32, new_input_modes, new_output_modes)
             est2_0_times, est2_0_epsilons = _estimated_learning_times(a00, b00, s, tau)
             est2_0b_times, est2_0b_epsilons = _estimated_learning_times(np.sqrt(a0_orig**2-a00**2), np.sqrt(a0_orig**2-b00**2), 0, tau)
             est2_0b_times, est2_0b_epsilons = _estimated_learning_times(a0_orig, b0_orig, 0, tau)
