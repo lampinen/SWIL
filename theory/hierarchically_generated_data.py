@@ -4,9 +4,9 @@ def hierarchically_generated_data(n_splits, n_children, f_per_child):
     """Creates a hierarchically strutured dataset from a tree of depth n_splits
     with n_children children per node, and f_per_child binary indicator
     features for each child."""
-    num_items = n_children**(n_splits-1)
-    num_features = [f_per_child*n_children**i for i in range(n_splits)]
-    part_sum_features = [sum(num_features[:i]) for i in range(n_splits)]
+    num_items = n_children**(n_splits)
+    num_features = [f_per_child*n_children**i for i in range(n_splits+1)]
+    part_sum_features = [sum(num_features[:i]) for i in range(n_splits+1)]
     data = np.zeros([num_items, sum(num_features)]) 
     for i, nf in enumerate(num_features):
         start = part_sum_features[i]
@@ -22,8 +22,8 @@ def mode_strength_theory(n_splits, n_children, f_per_child):
     f = f_per_child
     n = n_splits
     esses = []
-    for k in range(n):
-        single_s2 = f * c**(n-k-1)  * sum([c**-i for i in range(0, n-k)])
+    for k in range(n+1):
+        single_s2 = f * c**(n-k)  * sum([c**-i for i in range(0, n-k+1)])
         if k == 0:
             n_modes_per = 1
         else:
@@ -38,14 +38,14 @@ if __name__ == "__main__":
 #    print(hierarchically_generated_data(2, 3, 1))
 #    print(hierarchically_generated_data(3, 2, 1))
 #    print(hierarchically_generated_data(2, 3, 2))
-    X  = hierarchically_generated_data(4, 6, 2)
+    X  = hierarchically_generated_data(3, 7, 2)
     print(X)
 
     U, S, V = np.linalg.svd(X)
 
     print(S)
     print(len(S))
-    s_hat = mode_strength_theory(4, 6, 2)
+    s_hat = mode_strength_theory(3, 7, 2)
     print(s_hat)
     print(len(s_hat))
 
