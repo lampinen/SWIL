@@ -22,12 +22,12 @@ def mode_strength_theory(n_splits, n_children, f_per_child):
     f = f_per_child
     n = n_splits
     esses = []
-    for k in range(n+1):
-        single_s2 = f * c**(n-k)  * sum([c**-i for i in range(0, n-k+1)])
-        if k == 0:
+    for k in range(1, n+2):
+        single_s2 = f * c**(n-k+2)  * sum([c**-i for i in range(1, n-k+3)])
+        if k == 1:
             n_modes_per = 1
         else:
-            n_modes_per = (c-1)*c**(k-1)
+            n_modes_per = (c-1)*c**(k-2)
         esses += [np.sqrt(single_s2)] * n_modes_per
 
     return esses
@@ -38,19 +38,19 @@ if __name__ == "__main__":
 #    print(hierarchically_generated_data(2, 3, 1))
 #    print(hierarchically_generated_data(3, 2, 1))
 #    print(hierarchically_generated_data(2, 3, 2))
-    X  = hierarchically_generated_data(3, 7, 2)
+    X  = hierarchically_generated_data(3, 2, 1)
     print(X)
 
     U, S, V = np.linalg.svd(X)
 
     print(S)
     print(len(S))
-    s_hat = mode_strength_theory(3, 7, 2)
+    s_hat = mode_strength_theory(3, 2, 1)
     print(s_hat)
     print(len(s_hat))
 
-#?    for i in range(len(S)):
-#?        outer = np.dot(U[:, i:i+1], V[i:i+1, :])*S[i]
-#?        print(outer)
-#?        print(np.sqrt(np.sum(outer**2)))
-#?        print()
+#    for i in range(len(S)):
+#        outer = np.dot(U[:, i:i+1], V[i:i+1, :])*S[i]
+#        print(outer)
+#        print(np.sqrt(np.sum(outer**2)))
+#        print()
