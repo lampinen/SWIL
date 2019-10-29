@@ -49,11 +49,11 @@ That is, the change in the network's representation of a mode is proportional bo
 \begin{figure}
 \centering
 \begin{subfigure}[b]{0.49\textwidth}
-\includegraphics[width=\textwidth]{figures/initial_learning.png}
+\includegraphics[width=\textwidth]{figures/appendix/initial_learning.png}
 \caption{Loss} 
 \end{subfigure}~%
 \begin{subfigure}[b]{0.49\textwidth}
-\includegraphics[width=\textwidth]{figures/initial_learning_by_mode.png}
+\includegraphics[width=\textwidth]{figures/appendix/initial_learning_by_mode.png}
 \caption{Mode alignment} 
 \end{subfigure}
 \caption{Match between theory (Eq. \ref{t_eqn}) and empirical initial learning of a single mode. (a) shows the loss (squared error) of the network's outputs, and (b) shows the alignment (i.e. the quantity $ab$).}
@@ -74,18 +74,18 @@ Note that it suffices for only the input weights or the output weights but not b
 \begin{figure}
 \centering
 \begin{subfigure}[b]{0.49\textwidth}
-\includegraphics[width=\textwidth]{figures/orthogonal_adjusting.png}
+\includegraphics[width=\textwidth]{figures/appendix/orthogonal_adjusting.png}
 \caption{Loss} 
 \end{subfigure}~%
 \begin{subfigure}[b]{0.49\textwidth}
-\includegraphics[width=\textwidth]{figures/orthogonal_adjusting_by_mode.png}
+\includegraphics[width=\textwidth]{figures/appendix/orthogonal_adjusting_by_mode.png}
 \caption{Mode alignments} 
 \end{subfigure}\\
 \begin{subfigure}[b]{0.49\textwidth}
-\includegraphics[width=\textwidth]{figures/orthogonal_adjusting_first_mode_discrepancy.png}
+\includegraphics[width=\textwidth]{figures/appendix/orthogonal_adjusting_first_mode_discrepancy.png}
 \caption{Adjusting mode alignment detail} 
 \end{subfigure}
-\caption{Match between theory (Eq. \ref{t_eqn}) and empirical adjustment of one mode while simultaneously learning an orthogonal new mode. (a) show the theoretical loss due to each component as well as the total, showing an extremely close match between theoretical and empirical total loss. (b) shows the alignments of the modes, showing a slight discrepancy in the alignment of the first mode, which is due to a transient decrease in the singular value. (c) shows this discrepancy in the alignment in more detail, including the ratio of the empirically observed $\hat{s}$ to $s$, and that when the alignment is scaled by the inverse of this ratio it matches the theory exactly.}
+\caption{Match between theory (Eq. \ref{t_eqn}) and empirical adjustment of one mode while simultaneously learning an orthogonal new mode. (a) shows the theoretical loss due to each component as well as the total, showing an extremely close match between theoretical and empirical total loss. (b) shows the alignments of the modes, showing a slight discrepancy in the alignment of the first mode, which is due to a transient decrease in the singular value. (c) shows this discrepancy in the alignment in more detail, including the ratio of the empirically observed $\hat{s}$ to $s$, and that when the alignment is scaled by the inverse of this ratio it matches the theory exactly.}
 \label{orth_adj_fig}
 \end{figure}
 \subsection{Learning multiple non-orthogonal new modes}
@@ -96,11 +96,11 @@ However, in this case the new mode will benefit slightly from the initial strong
 \begin{figure}
 \centering
 \begin{subfigure}[b]{0.49\textwidth}
-\includegraphics[width=\textwidth]{figures/partially_aligned_adjusting.png}
+\includegraphics[width=\textwidth]{figures/appendix/partially_aligned_adjusting.png}
 \caption{Loss}
 \end{subfigure}~%
 \begin{subfigure}[b]{0.49\textwidth}
-\includegraphics[width=\textwidth]{figures/partially_aligned_adjusting_by_mode.png}
+\includegraphics[width=\textwidth]{figures/appendix/partially_aligned_adjusting_by_mode.png}
 \caption{Loss}
 \end{subfigure}~%
 \caption{Match between theory (Eq. \ref{t_eqn}) and empirical adjustment of one mode while simultaneously learning a new mode which is partially aligned with the old mode. The theory curves in the partially aligned case are the same as in the orthogonal case, showing the slight slow down in adjusting the old mode and speed up in learning the new mode.}
