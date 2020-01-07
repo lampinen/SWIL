@@ -1,6 +1,9 @@
 import numpy as np
+from matplotlib import rcParams
 import matplotlib.pyplot as plot
 from orthogonal_matrices import random_orthogonal
+
+rcParams.update({'figure.autolayout': True})
 
 ############ config
 num_runs = 1
@@ -9,7 +12,7 @@ num_output = 400
 rank = 2 # other ranks not supported yet 
 num_epochs = 10000
 esses = [5]#[10, 5, 3]
-s_new = 2
+s_new = 2. 
 init_size = 1e-5
 epsilon = 0.01
 overlap = 0.85
@@ -19,6 +22,8 @@ second_start_time = 0
 second_simple_approx = True
 #############
 tau = 1./lr 
+
+plot.rcParams.update({'font.size': 15})
 
 def _train(sigma_31, sigma_11, W21, W32, num_epochs, track_mode_alignment=False,
            new_input_modes=None, new_output_modes=None,):
@@ -105,7 +110,7 @@ def _estimated_learning_time(a0, b0, s, epsilon, tau):
         raise ValueError("Singular values cannot be negative")
     return t
 
-def _estimated_learning_times(a0, b0, s, tau, num_points=1000):
+def _estimated_learning_times(a0, b0, s, tau, num_points=5000):
     if s > 0:
         start = a0*b0/s
         end = 1.0
@@ -310,18 +315,19 @@ for run_i in range(num_runs):
             plot.xlabel("Epoch")
             plot.ylabel("Loss (initial learning)")
             plot.legend(["Empirical", "Theory"])
-            plot.savefig("results/singular_value_%.2f_condition_%s_initial_learning%s.png" % (s, new_mode, staggered_string))
+            plot.savefig("results/singular_value_%.2f_condition_%s_initial_learning%s.eps" % (s, new_mode, staggered_string))
             plot.figure()
 
             # initial learning: projections
             plot.figure()
             plot.plot(epochs[::subsample], first_tracks["S0"][::subsample], ".")
             plot.plot(est1_times, (1-est1_epsilons) * s)
-            plot.plot(epochs[::subsample], second_tracks["S0"][::subsample] / second_tracks["real_S0"][::subsample], ".")
+            #plot.plot(epochs[::subsample], second_tracks["S0"][::subsample] / second_tracks["real_S0"][::subsample], ".")
             plot.xlabel("Epoch")
             plot.ylabel("Projection strength (initial learning)")
-            plot.legend(["Empirical", "Theory", "Alignment"])
-            plot.savefig("results/singular_value_%.2f_condition_%s_initial_learning_by_mode%s.png" % (s, new_mode, staggered_string))
+            plot.legend(["Empirical", "Theory"])
+            #plot.legend(["Empirical", "Theory", "Alignment"])
+            plot.savefig("results/singular_value_%.2f_condition_%s_initial_learning_by_mode%s.eps" % (s, new_mode, staggered_string))
             plot.figure()
 
             # adjusting : loss
@@ -335,7 +341,7 @@ for run_i in range(num_runs):
             plot.ylabel("Loss (adjusting)")
 #            plot.xlim(-100, 500)
             plot.legend(["Empirical", "Theory (adjusted mode)", "Theory (new mode)", "Theory (total)"])
-            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting%s.png" % (s, new_mode, staggered_string))
+            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting%s.eps" % (s, new_mode, staggered_string))
 
             # adjusting: projections  
             # note in paper that first mode projection is scaled by s/s_hat, in order to cancel out the change in s_hat
@@ -350,13 +356,14 @@ for run_i in range(num_runs):
 #            plot.plot(epochs[::subsample], second_tracks["real_S0"][::subsample])
 #            lot.plot(epochs[::subsample], blah4[::subsample])
             plot.plot(est2_1_times, (1-est2_1_epsilons) * s_new)
-            plot.plot(epochs[::subsample], second_tracks["S1"][::subsample]/second_tracks["real_S1"][::subsample], ".")
+            #plot.plot(epochs[::subsample], second_tracks["S1"][::subsample]/second_tracks["real_S1"][::subsample], ".")
             #plot.xlim(-500, 10000)
 #            plot.xlim(-100, 500)
             plot.xlabel("Epoch")
             plot.ylabel("Projection strength (adjusting)")
-            plot.legend(["Empirical (1st mode, unscaled)", "Empirical (1st mode, scaled)", "Empirical (2nd mode)", "Theory (1st)", "Theory (2nd)", "alignment (2nd)"], loc=1)
-            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_by_mode%s.png" % (s, new_mode, staggered_string))
+            plot.legend(["Empirical (1st mode, unscaled)", "Empirical (1st mode, scaled)", "Empirical (2nd mode)", "Theory (1st)", "Theory (2nd)"], loc=(0.22, 0.46))
+            #plot.legend(["Empirical (1st mode, unscaled)", "Empirical (1st mode, scaled)", "Empirical (2nd mode)", "Theory (1st)", "Theory (2nd)", "alignment (2nd)"], loc=1)
+            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_by_mode%s.eps" % (s, new_mode, staggered_string))
             plot.figure()
 
             # discrepancy without scaling
@@ -377,14 +384,14 @@ for run_i in range(num_runs):
             plot.xlabel("Epoch")
             plot.ylabel("Projection strength (adjusting)")
             plot.legend(["Empirical (1st mode, unscaled)", "Empirical (1st mode, scaled)", "s ratio", "Theory (1st)"], loc=5)
-            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_first_mode_discrepancy%s.png" % (s, new_mode, staggered_string))
+            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_first_mode_discrepancy%s.eps" % (s, new_mode, staggered_string))
             plot.figure()
 
             plot.figure()
             plot.plot(epochs, second_tracks["alignment"], color='#550055')
             plot.xlabel("Epoch")
             plot.ylabel("Empirical representation alignment")
-            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_rep_alignment%s.png" % (s, new_mode, staggered_string))
+            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_rep_alignment%s.eps" % (s, new_mode, staggered_string))
             plot.figure()
             plot.plot(epochs[::subsample], second_tracks["alignmentinitold"][::subsample], '.')
             plot.plot(epochs[::subsample], second_tracks["alignmentinitnew"][::subsample], '.')
@@ -392,4 +399,4 @@ for run_i in range(num_runs):
 #            plot.plot(epochs, second_tracks["alignmentdeltanew"])
             plot.xlabel("Epoch")
             plot.ylabel("Empirical representation alignment to initial")
-            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_rep_alignment_2%s.png" % (s, new_mode, staggered_string))
+            plot.savefig("results/singular_value_%.2f_condition_%s_adjusting_rep_alignment_2%s.eps" % (s, new_mode, staggered_string))
